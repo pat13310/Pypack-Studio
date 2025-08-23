@@ -1,0 +1,9 @@
+@echo off
+echo Installation de MyApp1...
+echo Copie des fichiers...
+xcopy /E /I /Y ".\*" "%PROGRAMFILES%\MyApp1"
+echo Création du raccourci...
+set "shortcut_path=%USERPROFILE%\Desktop\MyApp1.lnk"
+powershell -Command "$s = New-Object -ComObject WScript.Shell; $shortcut = $s.CreateShortcut('%shortcut_path%'); $shortcut.TargetPath = '%PROGRAMFILES%\MyApp1\MyApp1.exe'; $shortcut.Save()"
+echo Installation terminée.
+pause

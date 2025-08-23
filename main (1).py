@@ -627,7 +627,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # ---- Barre latérale
         self.nav = QtWidgets.QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.addItems(["Projet", "Options", "Profils","Installation", "Sortie & Logs"])
+        self.nav.addItems(["Projet", "Options", "Profils", "Sortie & Logs"])
         self.nav.setSpacing(10)
         self.nav.setIconSize(QtCore.QSize(50, 50))  # Agrandir les icônes
         self.nav.currentRowChanged.connect(self._switch_page)
@@ -648,16 +648,10 @@ class MainWindow(QtWidgets.QMainWindow):
             icon_profile = QtGui.QIcon("profile.png")
             self.nav.item(2).setIcon(icon_profile)
         
-        
-        # Quatrième onglet "Installation" avec installation.png
-        if os.path.exists("installation.png"):
-            icon_install = QtGui.QIcon("installation.png")
-            self.nav.item(3).setIcon(icon_install)
-        
-        # Cinquième onglet "Logs" avec log.png
+        # Quatrième onglet "Logs" avec log.png
         if os.path.exists("log.png"):
             icon_log = QtGui.QIcon("log.png")
-            self.nav.item(4).setIcon(icon_log)
+            self.nav.item(3).setIcon(icon_log)
 
         
         
