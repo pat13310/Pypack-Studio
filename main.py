@@ -29,591 +29,15 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 
 from PySide6 import QtCore, QtGui, QtWidgets
+from backends import BuildConfig, normpath, add_data_kv, detect_python_exe, APP_ORG ,BACKENDS
+from tabpage import make_project_page, make_options_page, make_profiles_page, make_output_page
+from worker import BuildWorker
 
-APP_ORG = "XenSoft"
 APP_NAME = "PyPack Studio"
 
-CUSTOM_STYLE = """
-/* Dégradé gris sombre pour la fenêtre principale */
- QMainWindow {
-     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                 stop: 0 #2e2e2e, stop: 1 #1a1a1a);
-     color: #ffffff;
- }
+# Importer le style personnalisé depuis le fichier styles.py
+from styles import CUSTOM_STYLE
 
- /* Style des boutons */
- QPushButton {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                       stop: 0 #5a5a5a, stop: 1 #3c3c3c);
-     border: 1px solid #4a4a4a;
-     border-radius: 6px;
-     padding: 6px 12px;
-     color: #ffffff;
-     font-weight: bold;
- }
-
- QPushButton:hover {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                       stop: 0 #6a6a6a, stop: 1 #4c4c4c);
-    border: 1px solid #5a9bff;
- }
-
- QPushButton:pressed {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                       stop: 0 #3c3c3c, stop: 1 #5a5a5a);
-     border: 1px solid #2a2a2a;
- }
-
- QPushButton:disabled {
-     background-color: #3a3a3a;
-     color: #6a6a6a;
-     border: 1px solid #2a2a2a;
- }
-
- /* Style pour les boutons plus petits comme ceux de PathPicker */
- QToolButton {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                       stop: 0 #5a5a5a, stop: 1 #3c3c3c);
-     border: 1px solid #4a4a4a;
-     border-radius: 4px;
-     padding: 2px 4px;
-     color: #ffffff;
-     font-weight: bold;
- }
-
- QToolButton:hover {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                       stop: 0 #6a6a6a, stop: 1 #4c4c4c);
-     border: 1px solid #5a9bff;
-     
- }
-
- QToolButton:pressed {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                       stop: 0 #3c3c3c, stop: 1 #5a5a5a);
-     border: 1px solid #2a2a2a;
- }
-
- /* Style pour les champs de saisie */
- QLineEdit, QPlainTextEdit, QComboBox {
-     background-color: #2d2d2d;
-     border: 1px solid #4a4a4a;
-     border-radius: 4px;
-     padding: 4px;
-     color: #ffffff;
-     selection-background-color: #5a5a5a;
- }
-
- QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus {
-     border: 1px solid #5a9bff ;
- }
-
- /* Style pour les labels */
- QLabel {
-     color: #e0e0e0;
-     padding-top:6px;
- }
-
- /* Style pour les listes et tableaux */
- QListWidget, QTableWidget {
-     background-color: #252525;
-     alternate-background-color: #2a2a2a;
-     border: 1px solid #4a4a4a;
-     border-radius: 4px;
-     color: #ffffff;
-     gridline-color: #4a4a4a;
- }
-
- QListWidget::item:selected, QTableWidget::item:selected {
-     background-color: #5a5a5a;
- }
-
- /* Style pour la barre de navigation */
- QListWidget#nav {
-     background-color: #252525;
-     border: none;
-     border-radius: 8px;
-     font-size:14px;
-     padding: 12px;
- }
-
- QListWidget#nav::item {
-     padding: 30px 15px;
-     color: #f0f0f0;
-     background-color: #2a2a2a;
-     border-radius: 8px;
-     margin: 3px ;
-     border: 1px solid #3a3a3a;
-     font-size:14px;
- }
-
- QListWidget#nav::item:hover {
-     background-color: #353535;
-     border: 1px solid #454545;
- }
-
- QListWidget#nav::item:selected {
-     background-color: #353535;
-     color: #ffffff;
-     border-left: 5px solid #5a9bff;
-     font-weight: bold;
- }
-
- /* Style pour les en-têtes de tableau */
- QHeaderView::section {
-     background-color: #3a3a3a;
-     color: #ffffff;
-     padding: 4px;
-     border: 1px solid #4a4a4a;
- }
-
- /* Style pour les cases à cocher */
- QCheckBox {
-     color: #e0e0e0;
- }
-
- QCheckBox::indicator {
-     width: 16px;
-     height: 16px;
- }
-
- QCheckBox::indicator:unchecked {
-     border: 1px solid #4a4a4a;
-     background-color: #2d2d2d;
- }
-
- QCheckBox::indicator:checked {
-     border: 1px solid #4a4a4a;
-     background-color: #5a5a5a;
- }
-
- QCheckBox::indicator:unchecked:hover {
-     border: 1px solid #5a9bff;
- }
-
- QCheckBox::indicator:checked:hover {
-     border: 1px solid #5a9bff;
- }
-
- /* Style pour la barre de progression */
- QProgressBar {
-     border: 1px solid #4a4a4a;
-     border-radius: 4px;
-     text-align: center;
-     background-color: #2d2d2d;
- }
-
- QProgressBar::chunk {
-     background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0,
-                                       stop: 0 #5a9bff, stop: 0.5 #007acc, stop: 1 #003d7a);
-     border-radius: 3px;
- }
-
-"""
-# ---------------------------
-# Utilitaires
-# ---------------------------
-
-def normpath(p: str | Path) -> str:
-    if not p:
-        return ""
-    return str(Path(p).expanduser().resolve())
-
-
-def which(cmd: str) -> Optional[str]:
-    """Retourne le chemin de l'exécutable s'il est trouvable dans PATH."""
-    from shutil import which as _which
-    return _which(cmd)
-
-
-def detect_python_exe() -> str:
-    return normpath(sys.executable)
-
-
-def add_data_kv(pairs: List[Tuple[str, str]]) -> List[str]:
-    """Convertit une liste (src, dst) en arguments --add-data compatibles PyInstaller.
-    Sous Windows le séparateur est ';', sinon ':'
-    """
-    sep = ';' if os.name == 'nt' else ':'
-    out = []
-    for src, dst in pairs:
-        if not src:
-            continue
-        srcp = normpath(src)
-        if dst:
-            out.append(f"{srcp}{sep}{dst}")
-        else:
-            out.append(f"{srcp}{sep}.")
-    return out
-
-
-# ---------------------------
-# Utilitaires pour les répertoires et fichiers
-# ---------------------------
-def copy_files_and_directories_to_output(paths: List[str], output_dir: str, app_name: str):
-    """Copie les répertoires et fichiers spécifiés dans le dossier de sortie."""
-    import shutil
-    # Construire le chemin du répertoire de l'application
-    app_dir = Path(output_dir) / app_name
-    # S'assurer que le répertoire de l'application existe
-    app_dir.mkdir(parents=True, exist_ok=True)
-    
-    for path in paths:
-        if path.strip():
-            src_path = Path(path)
-            if src_path.exists():
-                if src_path.is_dir():
-                    # Copier un répertoire
-                    dst_path = app_dir / src_path.name
-                    # Créer le répertoire de destination s'il n'existe pas
-                    dst_path.mkdir(parents=True, exist_ok=True)
-                    # Copier le contenu du répertoire
-                    for item in src_path.iterdir():
-                        if item.is_dir():
-                            shutil.copytree(item, dst_path / item.name, dirs_exist_ok=True)
-                        else:
-                            shutil.copy2(item, dst_path)
-                else:
-                    # Copier un fichier
-                    dst_path = app_dir / src_path.name
-                    shutil.copy2(src_path, dst_path)
-            else:
-                # Le fichier ou répertoire source n'existe pas
-                pass
-
-
-# ---------------------------
-# Modèle de configuration
-# ---------------------------
-@dataclass
-class BuildConfig:
-    project_dir: str = ""
-    entry_script: str = ""
-    name: str = "MyApp"
-    icon_path: str = ""
-    backend: str = "pyinstaller"  # "pyinstaller" | "nuitka"
-    onefile: bool = True
-    windowed: bool = True
-    clean: bool = True
-    console: bool = False
-    add_data: List[Tuple[str, str]] = field(default_factory=list)  # (src, dst)
-    directories_to_create: List[str] = field(default_factory=list)  # répertoires à créer dans le paquet
-    hidden_imports: List[str] = field(default_factory=list)
-    extra_args: List[str] = field(default_factory=list)
-    output_dir: str = ""
-    python_exe: str = ""  # optionnel : forcer un Python spécifique
-
-    def validate(self) -> Tuple[bool, str]:
-        if not self.entry_script:
-            return False, "Le script d’entrée est requis."
-        if not Path(self.entry_script).exists():
-            return False, f"Script introuvable: {self.entry_script}"
-        if not self.name:
-            return False, "Le nom de l'application est requis."
-        if self.icon_path and not Path(self.icon_path).exists():
-            return False, f"Icône introuvable: {self.icon_path}"
-        if self.backend not in {"pyinstaller", "nuitka"}:
-            return False, f"Backend non supporté: {self.backend}"
-        return True, ""
-
-    def normalized(self) -> "BuildConfig":
-        c = BuildConfig(**asdict(self))
-        c.project_dir = normpath(c.project_dir or Path(self.entry_script).parent)
-        c.entry_script = normpath(c.entry_script)
-        c.icon_path = normpath(c.icon_path)
-        c.output_dir = normpath(c.output_dir or str(Path(c.project_dir)/"dist"))
-        c.python_exe = normpath(c.python_exe or detect_python_exe())
-        c.add_data = [(normpath(a), b) for a, b in self.add_data]
-        return c
-
-
-# ---------------------------
-# Backends d’empaquetage
-# ---------------------------
-class PackagerBackend(QtCore.QObject):
-    def build_command(self, cfg: BuildConfig) -> List[str]:
-        raise NotImplementedError
-
-    def name(self) -> str:
-        return "base"
-
-
-class PyInstallerBackend(PackagerBackend):
-    def name(self) -> str:
-        return "pyinstaller"
-
-    def build_command(self, cfg: BuildConfig) -> List[str]:
-        # Base
-        cmd = [cfg.python_exe, "-m", "PyInstaller"]
-        if cfg.clean:
-            cmd.append("--clean")
-        cmd.extend(["--noconfirm", f"--name={cfg.name}"])
-        if cfg.onefile:
-            cmd.append("--onefile")
-        if cfg.windowed and not cfg.console:
-            cmd.append("--windowed")
-        if cfg.icon_path:
-            cmd.append(f"--icon={cfg.icon_path}")
-        if cfg.output_dir:
-            cmd.extend(["--distpath", cfg.output_dir])
-        # add-data
-        for pair in add_data_kv(cfg.add_data):
-            cmd.extend(["--add-data", pair])
-        # directories to create will be handled by creating placeholder files before build
-        # hidden-imports
-        for hi in cfg.hidden_imports:
-            cmd.extend(["--hidden-import", hi])
-        # extra
-        cmd.extend(cfg.extra_args)
-        # entry
-        cmd.append(cfg.entry_script)
-        return cmd
-
-
-class NuitkaBackend(PackagerBackend):
-    def name(self) -> str:
-        return "nuitka"
-
-    def build_command(self, cfg: BuildConfig) -> List[str]:
-        # Nuitka: standalone pour embarquer l'interpréteur + deps
-        cmd = [cfg.python_exe, "-m", "nuitka", "--standalone"]
-        # --onefile reste optionnel sur Nuitka, plus lent mais pratique
-        if cfg.onefile:
-            cmd.append("--onefile")
-        if cfg.windowed and not cfg.console:
-            cmd.append("--windows-disable-console") if os.name == 'nt' else None
-        if cfg.icon_path and os.name == 'nt':
-            cmd.extend(["--windows-icon-from-ico", cfg.icon_path])
-        if cfg.output_dir:
-            cmd.extend(["--output-dir", cfg.output_dir])
-        # data files
-        for src, dst in cfg.add_data:
-            # Nuitka utilise --include-data-file=SRC=DST (ou DATA-DIR)
-            if src:
-                dst_final = dst or os.path.basename(src)
-                cmd.append(f"--include-data-file={src}={dst_final}")
-        # directories to create will be handled by creating placeholder files before build
-        # hidden imports
-        for hi in cfg.hidden_imports:
-            cmd.extend(["--include-module", hi])
-        # nom
-        if cfg.name:
-            cmd.extend(["--product-name", cfg.name, "--company-name", APP_ORG])
-            if os.name == 'nt':
-                cmd.extend(["--file-version", "1.0.0", "--product-version", "1.0.0"])
-        # extra
-        cmd.extend(cfg.extra_args)
-        # entry
-        cmd.append(cfg.entry_script)
-        return cmd
-
-
-BACKENDS: Dict[str, PackagerBackend] = {
-    "pyinstaller": PyInstallerBackend(),
-    "nuitka": NuitkaBackend(),
-}
-
-
-# ---------------------------
-# Worker: exécution QProcess
-# ---------------------------
-class BuildWorker(QtCore.QObject):
-    started = QtCore.Signal(list)
-    line = QtCore.Signal(str)
-    finished = QtCore.Signal(int)
-
-    def __init__(self, cmd: List[str], workdir: str | None = None, env: Optional[Dict[str, str]] = None):
-        super().__init__()
-        self.cmd = cmd
-        self.workdir = workdir
-        self.env = env or {}
-        self.proc = QtCore.QProcess()
-        # Important: mode de canal pour récupérer stdout + stderr
-        self.proc.setProcessChannelMode(QtCore.QProcess.MergedChannels)
-        self.proc.readyReadStandardOutput.connect(self._on_ready)
-        self.proc.finished.connect(self._on_finished)
-
-    def start(self):
-        self.started.emit(self.cmd)
-        if self.workdir:
-            self.proc.setWorkingDirectory(self.workdir)
-        # Hériter l'environnement + ajouts
-        env = QtCore.QProcessEnvironment.systemEnvironment()
-        for k, v in (self.env or {}).items():
-            env.insert(k, v)
-        self.proc.setProcessEnvironment(env)
-        # Lancer
-        # Sous Windows, QProcess accepte une commande + liste d'arguments
-        program = self.cmd[0]
-        args = self.cmd[1:]
-        self.proc.start(program, args)
-
-    @QtCore.Slot()
-    def _on_ready(self):
-        data = self.proc.readAllStandardOutput()
-        if data:
-            try:
-                text = bytes(data).decode(errors='replace')
-            except Exception:
-                text = str(data)
-            for ln in text.splitlines():
-                self.line.emit(ln)
-
-    @QtCore.Slot(int, QtCore.QProcess.ExitStatus)
-    def _on_finished(self, code: int, _status):
-        self.finished.emit(code)
-
-    def kill(self):
-        if self.proc.state() != QtCore.QProcess.NotRunning:
-            self.proc.kill()
-
-
-# ---------------------------
-# Widgets
-# ---------------------------
-class LabeledLineEdit(QtWidgets.QWidget):
-    textChanged = QtCore.Signal(str)
-
-    def __init__(self, label: str, placeholder: str = "", parent=None):
-        super().__init__(parent)
-        self._label = QtWidgets.QLabel(label) if label else None
-        self._edit = QtWidgets.QLineEdit()
-        self._edit.setPlaceholderText(placeholder)
-        lay = QtWidgets.QHBoxLayout(self)
-        lay.setAlignment(QtCore.Qt.AlignVCenter)
-        if self._label:
-            lay.addWidget(self._label)
-        lay.addWidget(self._edit)
-        self._edit.textChanged.connect(self.textChanged)
-
-    def text(self) -> str:
-        return self._edit.text()
-
-    def setText(self, s: str):
-        self._edit.setText(s)
-
-    def lineEdit(self) -> QtWidgets.QLineEdit:
-        return self._edit
-
-
-class PathPicker(LabeledLineEdit):
-    def __init__(self, label: str, is_file=True, placeholder: str = "", parent=None):
-        super().__init__(label, placeholder, parent)
-        self.is_file = is_file
-        btn = QtWidgets.QToolButton()
-        btn.setText("…")
-        btn.clicked.connect(self._pick)
-        self.layout().addWidget(btn)
-
-    def _pick(self):
-        if self.is_file:
-            path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Choisir un fichier")
-        else:
-            path = QtWidgets.QFileDialog.getExistingDirectory(self, "Choisir un dossier")
-        if path:
-            self.setText(path)
-
-
-class AddDataTable(QtWidgets.QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.table = QtWidgets.QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Source", "Destination relative"])
-        self.table.horizontalHeader().setStretchLastSection(True)
-        btn_add = QtWidgets.QPushButton("Ajouter")
-        btn_del = QtWidgets.QPushButton("Supprimer")
-        btn_add.clicked.connect(self.add_row)
-        btn_del.clicked.connect(self.del_selected)
-        v = QtWidgets.QVBoxLayout(self)
-        v.addWidget(self.table)
-        h = QtWidgets.QHBoxLayout()
-        h.addStretch(1)
-        h.addWidget(btn_add)
-        h.addWidget(btn_del)
-        v.addLayout(h)
-
-    def add_row(self, src: str = "", dst: str = ""):
-        r = self.table.rowCount()
-        self.table.insertRow(r)
-        self.table.setItem(r, 0, QtWidgets.QTableWidgetItem(src))
-        self.table.setItem(r, 1, QtWidgets.QTableWidgetItem(dst))
-
-    def del_selected(self):
-        for idx in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True):
-            self.table.removeRow(idx)
-
-    def value(self) -> List[Tuple[str, str]]:
-        out = []
-        for r in range(self.table.rowCount()):
-            src = self.table.item(r, 0)
-            dst = self.table.item(r, 1)
-            out.append((src.text().strip() if src else "", dst.text().strip() if dst else ""))
-        return out
-
-    def setValue(self, pairs: List[Tuple[str, str]]):
-        self.table.setRowCount(0)
-        for src, dst in (pairs or []):
-            self.add_row(src, dst)
-
-
-class AddFilesAndDirectoriesWidget(QtWidgets.QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.list_widget = QtWidgets.QListWidget()
-        btn_add_dir = QtWidgets.QPushButton("Ajouter dossier")
-        btn_add_file = QtWidgets.QPushButton("Ajouter fichier")
-        btn_del = QtWidgets.QPushButton("Supprimer")
-        btn_add_dir.clicked.connect(self.add_directory)
-        btn_add_file.clicked.connect(self.add_file)
-        btn_del.clicked.connect(self.del_selected)
-        v = QtWidgets.QVBoxLayout(self)
-        v.addWidget(self.list_widget)
-        h = QtWidgets.QHBoxLayout()
-        h.addStretch(1)
-        h.addWidget(btn_add_dir)
-        h.addWidget(btn_add_file)
-        h.addWidget(btn_del)
-        v.addLayout(h)
-
-    def add_directory(self):
-        # Créer une boîte de dialogue pour sélectionner un répertoire
-        dialog = QtWidgets.QFileDialog(self, "Sélectionner un répertoire")
-        dialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly, True)
-        
-        # Traduire les boutons de la boîte de dialogue
-        dialog.setLabelText(QtWidgets.QFileDialog.Accept, "Ouvrir")
-        dialog.setLabelText(QtWidgets.QFileDialog.Reject, "Annuler")
-        
-        if dialog.exec() == QtWidgets.QDialog.Accepted:
-            directory = dialog.selectedFiles()[0]
-            self.list_widget.addItem(directory)
-
-    def add_file(self):
-        # Créer une boîte de dialogue pour sélectionner un fichier
-        dialog = QtWidgets.QFileDialog(self, "Sélectionner un fichier")
-        dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
-        
-        # Traduire les boutons de la boîte de dialogue
-        dialog.setLabelText(QtWidgets.QFileDialog.Accept, "Ouvrir")
-        dialog.setLabelText(QtWidgets.QFileDialog.Reject, "Annuler")
-        
-        if dialog.exec() == QtWidgets.QDialog.Accepted:
-            file = dialog.selectedFiles()[0]
-            self.list_widget.addItem(file)
-
-    def del_selected(self):
-        for item in self.list_widget.selectedItems():
-            self.list_widget.takeItem(self.list_widget.row(item))
-
-    def value(self) -> List[str]:
-        return [self.list_widget.item(i).text().strip() for i in range(self.list_widget.count())]
-
-    def setValue(self, directories: List[str]):
-        self.list_widget.clear()
-        for directory in directories:
-            if directory.strip():
-                self.list_widget.addItem(directory.strip())
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -663,10 +87,10 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # ---- Pages
         self.pages = QtWidgets.QStackedWidget()
-        self.page_project = self._make_project_page()
-        self.page_options = self._make_options_page()
-        self.page_profiles = self._make_profiles_page()
-        self.page_output = self._make_output_page()
+        self.page_project = make_project_page(self)
+        self.page_options = make_options_page(self)
+        self.page_profiles = make_profiles_page(self)
+        self.page_output = make_output_page(self)
         for p in (self.page_project, self.page_options, self.page_profiles, self.page_output):
             self.pages.addWidget(p)
 
@@ -693,161 +117,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setWindowIcon(QtGui.QIcon(window_icon_path))
 
     # ---------------- Pages ----------------
-    def _make_project_page(self) -> QtWidgets.QWidget:
-        w = QtWidgets.QWidget()
-        form = QtWidgets.QFormLayout(w)
-        form.setLabelAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        form.setFormAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
-        form.setFieldGrowthPolicy(QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
-
-        self.ed_project = PathPicker("", is_file=False)
-        self.ed_entry = PathPicker("", is_file=True, placeholder="main.py")
-        self.ed_name = LabeledLineEdit("", "MyApp")
-        self.ed_icon = PathPicker("", is_file=True)
-        self.ed_output = PathPicker("", is_file=False)
-
-        # Actions
-        btn_analyze = QtWidgets.QPushButton(" Analyser")
-        btn_analyze.clicked.connect(self._analyze_project)
-        # Ajouter une icône au bouton Analyser si le fichier existe
-        if os.path.exists("search.png"):
-            btn_analyze.setIcon(QtGui.QIcon("search.png"))
-            btn_analyze.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
-        
-        btn_build = QtWidgets.QPushButton(" Construire")
-        btn_build.setDefault(True)
-        btn_build.clicked.connect(self._on_build_clicked)
-        # Ajouter une icône au bouton Construire si le fichier existe
-        if os.path.exists("engrenage.png"):
-            btn_build.setIcon(QtGui.QIcon("engrenage.png"))
-            btn_build.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
-            
-        
-        btn_clean = QtWidgets.QPushButton(" Nettoyer dist/")
-        btn_clean.clicked.connect(self._clean_output)
-        # Ajouter une icône au bouton Nettoyer si le fichier existe
-        if os.path.exists("balai.png"):
-            btn_clean.setIcon(QtGui.QIcon("balai.png"))
-            btn_clean.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
-            
-            
-
-        grid_buttons = QtWidgets.QHBoxLayout()
-        grid_buttons.addWidget(btn_analyze)
-        grid_buttons.addStretch(1)
-        grid_buttons.addWidget(btn_clean)
-        grid_buttons.addWidget(btn_build)
-        grid_buttons.setSpacing(12)
-
-        for row in [
-            ("Dossier projet", self.ed_project),
-            ("Script d’entrée", self.ed_entry),
-            ("Nom exécutable", self.ed_name),
-            ("Icône (.ico/.icns)", self.ed_icon),
-            ("Dossier de sortie", self.ed_output),
-        ]:
-            form.addRow(row[0], row[1])
-
-        sep = QtWidgets.QFrame(); sep.setFrameShape(QtWidgets.QFrame.HLine)
-        form.addRow(sep)
-        form.addRow(grid_buttons)
-        return w
-
-    def _make_options_page(self) -> QtWidgets.QWidget:
-        w = QtWidgets.QWidget()
-        form = QtWidgets.QFormLayout(w)
-
-        self.cmb_backend = QtWidgets.QComboBox()
-        self.cmb_backend.addItems(list(BACKENDS.keys()))
-
-        self.chk_onefile = QtWidgets.QCheckBox("One-file")
-        self.chk_onefile.setChecked(True)
-        self.chk_windowed = QtWidgets.QCheckBox("GUI / sans console")
-        self.chk_windowed.setChecked(True)
-        self.chk_clean = QtWidgets.QCheckBox("Nettoyage --clean")
-        self.chk_clean.setChecked(True)
-        self.chk_console = QtWidgets.QCheckBox("Forcer console")
-
-        self.tbl_data = AddDataTable()
-        
-        # Widget pour les répertoires et fichiers à créer
-        self.tbl_directories = AddFilesAndDirectoriesWidget()
-
-        self.ed_hidden = QtWidgets.QPlainTextEdit()
-        self.ed_hidden.setPlaceholderText("module_a\npackage_b.sousmodule\n...")
-
-        self.ed_extra = QtWidgets.QPlainTextEdit()
-        self.ed_extra.setPlaceholderText("Args supplémentaires ligne par ligne, ex: \n--exclude-module some_heavy_pkg\n--onedir")
-
-        self.ed_python = LabeledLineEdit("Python (optionnel)")
-        self.ed_python.setText(detect_python_exe())
-
-        for row in [
-            ("Backend", self.cmb_backend),
-            ("Onefile", self.chk_onefile),
-            ("Fenêtre GUI", self.chk_windowed),
-            ("Nettoyer", self.chk_clean),
-            ("Console", self.chk_console),
-            ("Données embarquées", self.tbl_data),
-            ("Fichiers/Répertoires à copier", self.tbl_directories),
-            ("Hidden imports", self.ed_hidden),
-            ("Args extra", self.ed_extra),
-            ("Python", self.ed_python),
-        ]:
-            form.addRow(row[0], row[1])
-        return w
-
-    def _make_profiles_page(self) -> QtWidgets.QWidget:
-        w = QtWidgets.QWidget()
-        v = QtWidgets.QVBoxLayout(w)
-
-        self.lst_profiles = QtWidgets.QListWidget()
-        self.lst_profiles.itemSelectionChanged.connect(self._on_profile_selected)
-
-        btn_new = QtWidgets.QPushButton("Nouveau")
-        btn_save = QtWidgets.QPushButton("Enregistrer")
-        btn_del = QtWidgets.QPushButton("Supprimer")
-        btn_export = QtWidgets.QPushButton("Exporter JSON")
-        btn_import = QtWidgets.QPushButton("Importer JSON")
-
-        btn_new.clicked.connect(self._profile_new)
-        btn_save.clicked.connect(self._profile_save)
-        btn_del.clicked.connect(self._profile_delete)
-        btn_export.clicked.connect(self._profile_export)
-        btn_import.clicked.connect(self._profile_import)
-
-        h = QtWidgets.QHBoxLayout()
-        for b in (btn_new, btn_save, btn_del, btn_export, btn_import):
-            h.addWidget(b)
-        h.addStretch(1)
-
-        v.addWidget(self.lst_profiles)
-        v.addLayout(h)
-        return w
-
-    def _make_output_page(self) -> QtWidgets.QWidget:
-        w = QtWidgets.QWidget()
-        v = QtWidgets.QVBoxLayout(w)
-        self.txt_log = QtWidgets.QTextEdit()
-        self.txt_log.setReadOnly(True)
-        self.lbl_status = QtWidgets.QLabel("En attente de commande...")
-        
-        # Barre de progression
-        self.progress_bar = QtWidgets.QProgressBar()
-        self.progress_bar.setVisible(False)
-        
-        h = QtWidgets.QHBoxLayout()
-        self.btn_stop = QtWidgets.QPushButton("Stop")
-        self.btn_stop.clicked.connect(self._stop_build)
-        self.btn_stop.setEnabled(False)
-        h.addWidget(self.lbl_status)
-        h.addStretch(1)
-        h.addWidget(self.btn_stop)
-        v.addWidget(self.progress_bar)
-        v.addWidget(self.txt_log, 1)
-        v.addLayout(h)
-        return w
-
     # ---------------- Logic ----------------
     def _switch_page(self, idx: int):
         self.pages.setCurrentIndex(idx)
@@ -892,6 +161,57 @@ class MainWindow(QtWidgets.QMainWindow):
         # Réinitialiser la progression si elle atteint 100%
         if self.progress_bar.value() >= 100:
             self.progress_bar.setValue(0)
+
+    def copy_files_and_directories_to_output(self, directories_to_create: List[str], output_dir: str, name: str):
+        """
+        Copie les fichiers et répertoires spécifiés vers le dossier de sortie.
+        
+        Args:
+            directories_to_create: Liste des chemins des fichiers/répertoires à copier
+            output_dir: Chemin du dossier de sortie
+            name: Nom de l'application (utilisé pour déterminer le sous-dossier dans dist/)
+        """
+        import shutil
+        from pathlib import Path
+        
+        output_path = Path(output_dir)
+        
+        # S'assurer que le dossier de sortie existe
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        for path_str in directories_to_create:
+            if not path_str.strip():
+                continue
+                
+            src_path = Path(path_str)
+            if not src_path.exists():
+                self._append_log(f"[WARNING] Le chemin spécifié n'existe pas: {path_str}", "warning")
+                continue
+                
+            try:
+                # Déterminer le chemin de destination
+                # Si le output_dir se termine par le nom de l'application, on copie directement dedans
+                # Sinon, on crée un sous-dossier avec le nom de l'application
+                if output_path.name == name:
+                    dst_path = output_path / src_path.name
+                else:
+                    app_output_path = output_path / name
+                    app_output_path.mkdir(parents=True, exist_ok=True)
+                    dst_path = app_output_path / src_path.name
+                
+                # Copier le fichier ou le répertoire
+                if src_path.is_file():
+                    shutil.copy2(src_path, dst_path)
+                    self._append_log(f"[INFO] Fichier copié: {src_path} -> {dst_path}", "info")
+                elif src_path.is_dir():
+                    # Pour les répertoires, on utilise copytree avec dirs_exist_ok=True
+                    if dst_path.exists():
+                        shutil.rmtree(dst_path)
+                    shutil.copytree(src_path, dst_path)
+                    self._append_log(f"[INFO] Répertoire copié: {src_path} -> {dst_path}", "info")
+                    
+            except Exception as e:
+                self._append_log(f"[ERROR] Erreur lors de la copie de {path_str}: {str(e)}", "error")
 
     def _config_from_ui(self) -> BuildConfig:
         cfg = BuildConfig(
@@ -1048,7 +368,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         self._append_log(f"[DEBUG] L'élément existe: {path}", "info")
                     else:
                         self._append_log(f"[DEBUG] L'élément n'existe pas: {path}", "warning")
-                copy_files_and_directories_to_output(cfg.directories_to_create, cfg.output_dir, cfg.name)
+                self.copy_files_and_directories_to_output(cfg.directories_to_create, cfg.output_dir, cfg.name)
                 self._append_log("[INFO] Répertoires et fichiers copiés dans le dossier de sortie.", "info")
                 
                 # Vérifier si les fichiers ont été copiés
