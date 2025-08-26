@@ -360,8 +360,8 @@ class AddFilesAndDirectoriesWidget(QtWidgets.QWidget):
         h.addWidget(btn_add_file)
         h.addWidget(btn_del)
         v.addLayout(h)
-        self.setMaximumHeight(100)
-        v.setSpacing(2)  # Réduire l'espacement entre les widgets
+        self.setMaximumHeight(250)
+        v.setSpacing(5)  # Réduire l'espacement entre les widgets
 
     def add_directory(self):
         # Créer une boîte de dialogue pour sélectionner un répertoire

@@ -29,14 +29,14 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 
 from PySide6 import QtCore, QtGui, QtWidgets
-from backends import BuildConfig, normpath, add_data_kv, detect_python_exe, APP_ORG ,BACKENDS
-from tabpage import make_project_page, make_options_page, make_profiles_page, make_output_page, make_install_page
-from worker import BuildWorker
+from src.backends import BuildConfig, normpath,   APP_ORG ,BACKENDS
+from src.tabpage import make_project_page, make_options_page, make_profiles_page, make_output_page, make_install_page
+from src.worker import BuildWorker
 
 APP_NAME = "PyPack Studio"
 
 # Importer le style personnalisé depuis le fichier styles.py
-from styles import CUSTOM_STYLE
+from src.styles import CUSTOM_STYLE
 
 
 
@@ -45,6 +45,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.resize(1100, 500)
+        self.setFixedSize(1100, 820)
         self.settings = QtCore.QSettings(APP_ORG, APP_NAME)
         self._build_in_progress = False
 
@@ -58,29 +59,29 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Ajout des icônes aux onglets
         # Premier onglet "Projet" avec projet.png
-        if os.path.exists("projet.png"):
-            icon_projet = QtGui.QIcon("projet.png")
+        if os.path.exists("./res/projet.png"):
+            icon_projet = QtGui.QIcon("./res/projet.png")
             self.nav.item(0).setIcon(icon_projet)
         
         # Deuxième onglet "Options" avec pngegg.png
-        if os.path.exists("option.png"):
-            icon_options = QtGui.QIcon("option.png")
+        if os.path.exists("res/option.png"):
+            icon_options = QtGui.QIcon("res/option.png")
             self.nav.item(1).setIcon(icon_options)
 
         # Triosième onglet "Profile" avec profile.png
-        if os.path.exists("profile.png"):
-            icon_profile = QtGui.QIcon("profile.png")
+        if os.path.exists("res/profile.png"):
+            icon_profile = QtGui.QIcon("res/profile.png")
             self.nav.item(2).setIcon(icon_profile)
         
         
         # Quatrième onglet "Installation" avec installation.png
-        if os.path.exists("installation.png"):
-            icon_install = QtGui.QIcon("installation.png")
+        if os.path.exists("res/installation.png"):
+            icon_install = QtGui.QIcon("res/installation.png")
             self.nav.item(3).setIcon(icon_install)
         
         # Cinquième onglet "Logs" avec log.png
-        if os.path.exists("log.png"):
-            icon_log = QtGui.QIcon("log.png")
+        if os.path.exists("res/log.png"):
+            icon_log = QtGui.QIcon("res/log.png")
             self.nav.item(4).setIcon(icon_log)
 
         
@@ -115,15 +116,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._load_settings()
         # Définir l'icône par défaut si elle n'est pas déjà définie
         if not self.ed_icon.text():
-            default_icon_path = "pypack.ico"
+            default_icon_path = "res/pypack.ico"
             if os.path.exists(default_icon_path):
                 self.ed_icon.setText(default_icon_path)
         self.nav.setCurrentRow(0)
 
         # Définir l'icône de la fenêtre
-        window_icon_path = "pypack.ico"
+        window_icon_path = "res/pypack.ico"
         if not os.path.exists(window_icon_path):
-            window_icon_path = "pypack.png"
+            window_icon_path = "res/pypack.png"
         if os.path.exists(window_icon_path):
             self.setWindowIcon(QtGui.QIcon(window_icon_path))
 
@@ -160,7 +161,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
             
         # Importer l'assistant d'installation
-        from install_wizard import InstallWizard, WizardConfig
+        from src.install_wizard import InstallWizard, WizardConfig
         
         # Créer la configuration du wizard
         config = WizardConfig(
@@ -408,7 +409,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         backend = BACKENDS.get(cfg.backend)
         if backend is None:
-            QtWidgets.QMessageBox.warning(self, "Backend", f"Backend inconnu: {cfg.backend}")
+            QtWidgets.QMessageBox.warning(self, "Outil", f"Outil inconnu: {cfg.backend}")
             return
         cmd = backend.build_command(cfg)
         # Vérif exe disponible

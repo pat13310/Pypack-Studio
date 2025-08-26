@@ -98,19 +98,30 @@ class InstallWizard(QtWidgets.QWizard):
         if image_path:
             pixmap = QtGui.QPixmap(image_path)
             if not pixmap.isNull():
+                # Préserver le format de l'image source s'il a un canal alpha
+                if pixmap.hasAlpha():
+                    pixmap = pixmap.convertToFormat(QtGui.QImage.Format_ARGB32)
+                
                 if pixmap.width() > target_width or pixmap.height() > target_height:
                     scaled_width = target_width - left_margin - separator_width
+                    # Utiliser Qt.SmoothTransformation et préserver l'alpha
                     pixmap = pixmap.scaled(
                         scaled_width,
                         target_height,
                         QtCore.Qt.KeepAspectRatio,
                         QtCore.Qt.SmoothTransformation,
                     )
-
+                
+                # Créer un nouveau pixmap avec support de la transparence
                 new_pixmap = QtGui.QPixmap(target_width, target_height)
                 new_pixmap.fill(QtCore.Qt.transparent)
-
+                
+                # Utiliser un QPainter pour composer l'image avec transparence
                 painter = QtGui.QPainter(new_pixmap)
+                painter.setRenderHint(QtGui.QPainter.Antialiasing)
+                painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform)
+                
+                # Dessiner la ligne de séparation
                 painter.setPen(QtGui.QPen(QtCore.Qt.lightGray, separator_width))
                 painter.drawLine(
                     target_width - separator_width // 2,
@@ -118,9 +129,12 @@ class InstallWizard(QtWidgets.QWizard):
                     target_width - separator_width // 2,
                     target_height,
                 )
+                
+                # Dessiner l'image avec composition qui préserve l'alpha
+                painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
                 painter.drawPixmap(left_margin, 0, pixmap)
                 painter.end()
-
+                
                 self.setPixmap(QtWidgets.QWizard.WatermarkPixmap, new_pixmap)
             else:
                 print(f"Erreur: Impossible de charger l'image {image_path}")

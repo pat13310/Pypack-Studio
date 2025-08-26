@@ -4,9 +4,9 @@ Fichier contenant les pages du stack pour l'application PyPack Studio.
 
 from PySide6 import QtCore, QtGui, QtWidgets
 import os
-from backends import BACKENDS, BuildConfig
-from widgets import LabeledLineEdit, PathPicker, AddDataTable, AddFilesAndDirectoriesWidget
-from backends import detect_python_exe
+from src.backends import BACKENDS, BuildConfig
+from src.widgets import LabeledLineEdit, PathPicker, AddDataTable, AddFilesAndDirectoriesWidget
+from src.backends import detect_python_exe
 
 
 def make_project_page(main_window) -> QtWidgets.QWidget:
@@ -26,23 +26,45 @@ def make_project_page(main_window) -> QtWidgets.QWidget:
     btn_analyze = QtWidgets.QPushButton(" Analyser")
     btn_analyze.clicked.connect(main_window._analyze_project)
     # Ajouter une icône au bouton Analyser si le fichier existe
-    if os.path.exists("search.png"):
-        btn_analyze.setIcon(QtGui.QIcon("search.png"))
+    if os.path.exists("res/search.png"):
+        btn_analyze.setIcon(QtGui.QIcon("res/search.png"))
         btn_analyze.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
     
     btn_build = QtWidgets.QPushButton(" Construire")
     btn_build.setDefault(True)
+    btn_build.setStyleSheet("""
+        QPushButton {
+            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                              stop: 0 #5a9bff, stop: 1 #007acc);
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            padding: 12px 28px;
+            color: #ffffff;
+            font-weight: bold;
+            margin-top:12px;
+        }
+        QPushButton:hover {
+            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                              stop: 0 #6aafff, stop: 1 #1a8cff);
+            border: 1px solid #5a9bff;
+        }
+        QPushButton:pressed {
+            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                              stop: 0 #007acc, stop: 1 #5a9bff);
+            border: 1px solid #2a2a2a;
+        }
+    """)
+    
     btn_build.clicked.connect(main_window._on_build_clicked)
     # Ajouter une icône au bouton Construire si le fichier existe
-    if os.path.exists("engrenage.png"):
-        btn_build.setIcon(QtGui.QIcon("engrenage.png"))
-        btn_build.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
+    if os.path.exists("res/gear.png"):
+        btn_build.setIcon(QtGui.QIcon("res/gear.png"))
         
     btn_clean = QtWidgets.QPushButton(" Nettoyer dist/")
     btn_clean.clicked.connect(main_window._clean_output)
     # Ajouter une icône au bouton Nettoyer si le fichier existe
-    if os.path.exists("balai.png"):
-        btn_clean.setIcon(QtGui.QIcon("balai.png"))
+    if os.path.exists("res/balai.png"):
+        btn_clean.setIcon(QtGui.QIcon("res/balai.png"))
         btn_clean.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
         
 
@@ -64,6 +86,7 @@ def make_project_page(main_window) -> QtWidgets.QWidget:
 
     sep = QtWidgets.QFrame()
     sep.setFrameShape(QtWidgets.QFrame.HLine)
+    sep.setStyleSheet("color: #6a9bff;")
     form.addRow(sep)
     form.addRow(grid_buttons)
     return w
@@ -78,7 +101,7 @@ def make_options_page() -> QtWidgets.QWidget:
     cmb_backend = QtWidgets.QComboBox()
     cmb_backend.addItems(list(BACKENDS.keys()))
     
-    chk_onefile = QtWidgets.QCheckBox("One-file")
+    chk_onefile = QtWidgets.QCheckBox("Un seul-fichier")
     chk_onefile.setChecked(True)
     chk_windowed = QtWidgets.QCheckBox("GUI / sans console")
     chk_windowed.setChecked(True)
@@ -117,8 +140,8 @@ def make_options_page() -> QtWidgets.QWidget:
     }
     
     for row in [
-        ("Backend", cmb_backend),
-        ("Onefile", chk_onefile),
+        ("Outil", cmb_backend),
+        ("Un fichier", chk_onefile),
         ("Fenêtre GUI", chk_windowed),
         ("Nettoyer", chk_clean),
         ("Console", chk_console),
