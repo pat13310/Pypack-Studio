@@ -5,6 +5,18 @@ Toutes les modifications notables apportées à ce projet seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-08-26
+
+### Ajouté
+- Assistant d'installation pour créer une structure de base d'application PySide6
+- Possibilité de copier des fichiers et répertoires dans le dossier de sortie après le build
+- Barre de progression pendant le processus de build
+- Icônes personnalisées pour les onglets de l'interface
+
+### Amélioré
+- Système de logs avec couleurs et icônes pour différents niveaux de messages
+- Interface utilisateur avec des textes et des boutons plus explicites
+
 ## [0.3.0] - 2025-08-24
 
 ### Modifié
@@ -39,3 +51,4 @@ et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0
 [0.1.0]: https://github.com/pat13310/Pypack-Studio/releases/tag/v0.1.0
 [0.2.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.1.0...v0.2.0
 [0.3.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.2.0...v0.3.0
+[0.4.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.3.0...v0.4.0

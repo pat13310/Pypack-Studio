@@ -30,7 +30,7 @@ from datetime import datetime
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from backends import BuildConfig, normpath, add_data_kv, detect_python_exe, APP_ORG ,BACKENDS
-from tabpage import make_project_page, make_options_page, make_profiles_page, make_output_page
+from tabpage import make_project_page, make_options_page, make_profiles_page, make_output_page, make_install_page
 from worker import BuildWorker
 
 APP_NAME = "PyPack Studio"
@@ -44,7 +44,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
-        self.resize(1100, 720)
+        self.resize(1100, 500)
         self.settings = QtCore.QSettings(APP_ORG, APP_NAME)
         self._build_in_progress = False
 
@@ -88,10 +88,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # ---- Pages
         self.pages = QtWidgets.QStackedWidget()
         self.page_project = make_project_page(self)
-        self.page_options = make_options_page(self)
-        self.page_profiles = make_profiles_page(self)
+        self.page_options = make_options_page()
+        self.page_profiles = make_profiles_page()
+        self.page_install = make_install_page()
+        self.page_install.widget().install_btn.clicked.connect(self._install_app_from_page)
         self.page_output = make_output_page(self)
-        for p in (self.page_project, self.page_options, self.page_profiles, self.page_output):
+        
+        # Connecter les signaux de la page des profils
+        self.page_profiles.widgets['lst_profiles'].itemSelectionChanged.connect(self._on_profile_selected)
+        self.page_profiles.widgets['btn_new'].clicked.connect(self._profile_new)
+        self.page_profiles.widgets['btn_save'].clicked.connect(self._profile_save)
+        self.page_profiles.widgets['btn_del'].clicked.connect(self._profile_delete)
+        self.page_profiles.widgets['btn_export'].clicked.connect(self._profile_export)
+        self.page_profiles.widgets['btn_import'].clicked.connect(self._profile_import)
+        
+        for p in (self.page_project, self.page_options, self.page_profiles, self.page_install, self.page_output):
             self.pages.addWidget(p)
 
         # ---- Layout principal
@@ -117,6 +128,86 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setWindowIcon(QtGui.QIcon(window_icon_path))
 
     # ---------------- Pages ----------------
+    def _browse_destination(self):
+        directory = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Choisir le répertoire de destination"
+        )
+        if directory:
+            self.ed_dest_path.setText(directory)
+            
+    def _browse_wizard_image(self):
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Sélectionner une image", "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)"
+        )
+        if file_path:
+            self.ed_wizard_image.setText(file_path)
+            
+    def _install_app(self):
+        # Cette méthode n'est plus utilisée directement, mais conservée pour compatibilité
+        pass
+    
+    def _install_app_from_page(self):
+        # Récupérer les valeurs des widgets de la page d'installation
+        widgets = self.page_install.widget().widgets
+        
+        app_name = widgets['app_name'].text() or "MyApp"
+        dest_path = widgets['dest_path'].text()
+        wizard_image = widgets['wizard_image'].text()
+        
+        # Vérifier que le chemin de destination n'est pas vide
+        if not dest_path:
+            QtWidgets.QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier de destination.")
+            return
+            
+        # Importer l'assistant d'installation
+        from install_wizard import InstallWizard, WizardConfig
+        
+        # Créer la configuration du wizard
+        config = WizardConfig(
+            app_name=app_name,
+            dest_path=dest_path,
+            wizard_image=wizard_image
+        )
+        
+        # Mettre à jour les textes personnalisés si ils sont saisis
+        if widgets['intro_title'].text():
+            config.intro_title = widgets['intro_title'].text()
+        if widgets['intro_subtitle'].text():
+            config.intro_subtitle = widgets['intro_subtitle'].text()
+        if widgets['intro_text'].toPlainText():
+            config.intro_text = widgets['intro_text'].toPlainText()
+            
+        if widgets['app_info_title'].text():
+            config.app_info_title = widgets['app_info_title'].text()
+        if widgets['app_info_subtitle'].text():
+            config.app_info_subtitle = widgets['app_info_subtitle'].text()
+            
+        if widgets['components_title'].text():
+            config.components_title = widgets['components_title'].text()
+        if widgets['components_subtitle'].text():
+            config.components_subtitle = widgets['components_subtitle'].text()
+            
+        if widgets['install_options_title'].text():
+            config.install_options_title = widgets['install_options_title'].text()
+        if widgets['install_options_subtitle'].text():
+            config.install_options_subtitle = widgets['install_options_subtitle'].text()
+            
+        if widgets['destination_title'].text():
+            config.destination_title = widgets['destination_title'].text()
+        if widgets['destination_subtitle'].text():
+            config.destination_subtitle = widgets['destination_subtitle'].text()
+            
+        if widgets['summary_title'].text():
+            config.summary_title = widgets['summary_title'].text()
+        if widgets['summary_subtitle'].text():
+            config.summary_subtitle = widgets['summary_subtitle'].text()
+        
+        # Créer et afficher l'assistant d'installation avec la configuration
+        wizard = InstallWizard(config=config)
+        
+        # Afficher l'assistant
+        wizard.exec()
+            
     # ---------------- Logic ----------------
     def _switch_page(self, idx: int):
         self.pages.setCurrentIndex(idx)
@@ -219,17 +310,17 @@ class MainWindow(QtWidgets.QMainWindow):
             entry_script=self.ed_entry.text(),
             name=self.ed_name.text(),
             icon_path=self.ed_icon.text(),
-            backend=self.cmb_backend.currentText(),
-            onefile=self.chk_onefile.isChecked(),
-            windowed=self.chk_windowed.isChecked(),
-            clean=self.chk_clean.isChecked(),
-            console=self.chk_console.isChecked(),
-            add_data=self.tbl_data.value(),
-            directories_to_create=self.tbl_directories.value(),
-            hidden_imports=[ln.strip() for ln in self.ed_hidden.toPlainText().splitlines() if ln.strip()],
-            extra_args=[ln.strip() for ln in self.ed_extra.toPlainText().splitlines() if ln.strip()],
+            backend=self.page_options.widget().widgets['cmb_backend'].currentText(),
+            onefile=self.page_options.widget().widgets['chk_onefile'].isChecked(),
+            windowed=self.page_options.widget().widgets['chk_windowed'].isChecked(),
+            clean=self.page_options.widget().widgets['chk_clean'].isChecked(),
+            console=self.page_options.widget().widgets['chk_console'].isChecked(),
+            #add_data=self.page_options.widget().widgets['tbl_data'].value(),
+            directories_to_create=self.page_options.widget().widgets['tbl_directories'].value(),
+            hidden_imports=[ln.strip() for ln in self.page_options.widget().widgets['ed_hidden'].toPlainText().splitlines() if ln.strip()],
+            extra_args=[ln.strip() for ln in self.page_options.widget().widgets['ed_extra'].toPlainText().splitlines() if ln.strip()],
             output_dir=self.ed_output.text(),
-            python_exe=self.ed_python.text(),
+            python_exe=self.page_options.widget().widgets['ed_python'].text(),
         )
         return cfg.normalized()
 
@@ -239,16 +330,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ed_name.setText(cfg.name)
         self.ed_icon.setText(cfg.icon_path)
         self.ed_output.setText(cfg.output_dir)
-        self.cmb_backend.setCurrentText(cfg.backend)
-        self.chk_onefile.setChecked(cfg.onefile)
-        self.chk_windowed.setChecked(cfg.windowed)
-        self.chk_clean.setChecked(cfg.clean)
-        self.chk_console.setChecked(cfg.console)
-        self.tbl_data.setValue(cfg.add_data)
-        self.tbl_directories.setValue(cfg.directories_to_create)
-        self.ed_hidden.setPlainText("\n".join(cfg.hidden_imports))
-        self.ed_extra.setPlainText("\n".join(cfg.extra_args))
-        self.ed_python.setText(cfg.python_exe)
+        self.page_options.widget().widgets['cmb_backend'].setCurrentText(cfg.backend)
+        self.page_options.widget().widgets['chk_onefile'].setChecked(cfg.onefile)
+        self.page_options.widget().widgets['chk_windowed'].setChecked(cfg.windowed)
+        self.page_options.widget().widgets['chk_clean'].setChecked(cfg.clean)
+        self.page_options.widget().widgets['chk_console'].setChecked(cfg.console)
+        self.page_options.widget().widgets['tbl_data'].setValue(cfg.add_data)
+        self.page_options.widget().widgets['tbl_directories'].setValue(cfg.directories_to_create)
+        self.page_options.widget().widgets['ed_hidden'].setPlainText("\n".join(cfg.hidden_imports))
+        self.page_options.widget().widgets['ed_extra'].setPlainText("\n".join(cfg.extra_args))
+        self.page_options.widget().widgets['ed_python'].setText(cfg.python_exe)
 
     # --- Analyse/Nettoyage ---
     def _analyze_project(self):
@@ -406,12 +497,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.setValue("profiles", json.dumps(data, ensure_ascii=False, indent=2))
 
     def _refresh_profiles_list(self):
-        self.lst_profiles.clear()
+        self.page_profiles.widgets['lst_profiles'].clear()
         for name in sorted(self._profiles_load_all().keys()):
-            self.lst_profiles.addItem(name)
+            self.page_profiles.widgets['lst_profiles'].addItem(name)
 
     def _on_profile_selected(self):
-        item = self.lst_profiles.currentItem()
+        item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
             return
         name = item.text()
@@ -431,12 +522,12 @@ class MainWindow(QtWidgets.QMainWindow):
         data[name] = asdict(cfg)
         self._profiles_save_all(data)
         self._refresh_profiles_list()
-        items = self.lst_profiles.findItems(name, QtCore.Qt.MatchExactly)
+        items = self.page_profiles.widgets['lst_profiles'].findItems(name, QtCore.Qt.MatchExactly)
         if items:
-            self.lst_profiles.setCurrentItem(items[0])
+            self.page_profiles.widgets['lst_profiles'].setCurrentItem(items[0])
 
     def _profile_save(self):
-        item = self.lst_profiles.currentItem()
+        item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
             QtWidgets.QMessageBox.information(self, "Profils", "Sélectionnez un profil à enregistrer.")
             return
@@ -447,7 +538,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._append_log(f"[PROFIL] Sauvé: {name}", "info")
 
     def _profile_delete(self):
-        item = self.lst_profiles.currentItem()
+        item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
             return
         name = item.text()
@@ -510,6 +601,13 @@ def main():
     app.setStyle("Fusion")
     app.setStyleSheet(CUSTOM_STYLE)
     w = MainWindow()
+    
+    # Centrer horizontalement et positionner à 50 pixels du haut
+    screen_size = app.primaryScreen().size()
+    window_width = w.width()
+    x = (screen_size.width() - window_width) // 2
+    w.move(x, 5)
+    
     w.show()
     sys.exit(app.exec())
 

@@ -8,11 +8,43 @@ from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 
 
-class InstallWizard(QtWidgets.QWizard):
-    def __init__(self, app_name: str = "MyApp", dest_path: str = None):
-        super().__init__()
+class WizardConfig:
+    def __init__(self, app_name: str = "MyApp", dest_path: str = None, wizard_image: str = None, app_description: str = ""):
+        # Informations de base
         self.app_name = app_name
-        self.dest_path = dest_path or str(Path.home() / app_name)
+        self.dest_path = dest_path
+        self.wizard_image = wizard_image
+        self.app_description = app_description
+        
+        # Textes du wizard
+        self.intro_title = "Bienvenue dans l'assistant de création d'application PySide6"
+        self.intro_subtitle = "Cet assistant va vous aider à créer une structure de base pour votre application."
+        self.intro_text = "Cette application va créer une structure de base pour une application PySide6 avec les éléments nécessaires pour commencer à développer.\n\nCliquez sur Suivant pour continuer."
+        
+        self.app_info_title = "Informations sur l'application"
+        self.app_info_subtitle = "Veuillez entrer les informations de base pour votre application."
+        
+        self.components_title = "Composants"
+        self.components_subtitle = "Sélectionnez les composants à inclure dans votre application."
+        
+        self.install_options_title = "Options d'installation"
+        self.install_options_subtitle = "Sélectionnez les options d'installation pour votre application."
+        
+        self.destination_title = "Destination"
+        self.destination_subtitle = "Choisissez le répertoire où créer votre application."
+        
+        self.summary_title = "Résumé"
+        self.summary_subtitle = "Voici un résumé de vos choix. Cliquez sur Terminer pour quitter l'assistant."
+
+class InstallWizard(QtWidgets.QWizard):
+    def __init__(self, config: WizardConfig = None):
+        super().__init__()
+        self.config = config or WizardConfig()
+        
+        # Définir les propriétés à partir de la configuration
+        self.app_name = self.config.app_name
+        self.dest_path = self.config.dest_path or str(Path.home() / self.app_name)
+        self.wizard_image = self.config.wizard_image
 
         self.setWindowTitle("Assistant d'installation de PyPack Studio")
         self.resize(800, 360)
@@ -53,7 +85,10 @@ class InstallWizard(QtWidgets.QWizard):
         separator_width = 2
 
         image_path = None
-        if os.path.exists("wizard.png"):
+        # Utiliser l'image personnalisée si elle est fournie et existe
+        if self.config.wizard_image and os.path.exists(self.config.wizard_image):
+            image_path = self.config.wizard_image
+        elif os.path.exists("wizard.png"):
             image_path = "wizard.png"
         elif os.path.exists("projet.png"):
             image_path = "projet.png"
@@ -94,10 +129,8 @@ class InstallWizard(QtWidgets.QWizard):
 
     def create_intro_page(self):
         page = QtWidgets.QWizardPage()
-        page.setTitle("Bienvenue dans l'assistant de création d'application PySide6")
-        page.setSubTitle(
-            "Cet assistant va vous aider à créer une structure de base pour votre application."
-        )
+        page.setTitle(self.config.intro_title)
+        page.setSubTitle(self.config.intro_subtitle)
 
         separator = QtWidgets.QFrame()
         separator.setFrameShape(QtWidgets.QFrame.HLine)
@@ -108,11 +141,7 @@ class InstallWizard(QtWidgets.QWizard):
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
         )
 
-        label = QtWidgets.QLabel(
-            "Cette application va créer une structure de base pour une application PySide6 "
-            "avec les éléments nécessaires pour commencer à développer.\n\n"
-            "Cliquez sur Suivant pour continuer."
-        )
+        label = QtWidgets.QLabel(self.config.intro_text)
         label.setWordWrap(True)
 
         layout = QtWidgets.QVBoxLayout(page)
@@ -124,10 +153,8 @@ class InstallWizard(QtWidgets.QWizard):
 
     def create_app_info_page(self):
         page = QtWidgets.QWizardPage()
-        page.setTitle("Informations sur l'application")
-        page.setSubTitle(
-            "Veuillez entrer les informations de base pour votre application."
-        )
+        page.setTitle(self.config.app_info_title)
+        page.setSubTitle(self.config.app_info_subtitle)
 
         name_label = QtWidgets.QLabel("Nom de l'application:")
         self.name_edit = QtWidgets.QLineEdit(self.app_name)
@@ -151,10 +178,8 @@ class InstallWizard(QtWidgets.QWizard):
 
     def create_components_page(self):
         page = QtWidgets.QWizardPage()
-        page.setTitle("Composants")
-        page.setSubTitle(
-            "Sélectionnez les composants à inclure dans votre application."
-        )
+        page.setTitle(self.config.components_title)
+        page.setSubTitle(self.config.components_subtitle)
 
         self.pyside_check = QtWidgets.QCheckBox("PySide6")
         self.pyside_check.setChecked(True)
@@ -184,10 +209,8 @@ class InstallWizard(QtWidgets.QWizard):
 
     def create_install_options_page(self):
         page = QtWidgets.QWizardPage()
-        page.setTitle("Options d'installation")
-        page.setSubTitle(
-            "Sélectionnez les options d'installation pour votre application."
-        )
+        page.setTitle(self.config.install_options_title)
+        page.setSubTitle(self.config.install_options_subtitle)
 
         self.desktop_shortcut_check = QtWidgets.QCheckBox("Créer un raccourci sur le bureau")
         self.desktop_shortcut_check.setChecked(True)
@@ -207,8 +230,8 @@ class InstallWizard(QtWidgets.QWizard):
 
     def create_destination_page(self):
         page = QtWidgets.QWizardPage()
-        page.setTitle("Destination")
-        page.setSubTitle("Choisissez le répertoire où créer votre application.")
+        page.setTitle(self.config.destination_title)
+        page.setSubTitle(self.config.destination_subtitle)
 
         dest_label = QtWidgets.QLabel("Répertoire de destination:")
         self.dest_edit = QtWidgets.QLineEdit()
@@ -229,10 +252,8 @@ class InstallWizard(QtWidgets.QWizard):
 
     def create_summary_page(self):
         page = QtWidgets.QWizardPage()
-        page.setTitle("Résumé")
-        page.setSubTitle(
-            "Voici un résumé de vos choix. Cliquez sur Terminer pour quitter l'assistant."
-        )
+        page.setTitle(self.config.summary_title)
+        page.setSubTitle(self.config.summary_subtitle)
         page.setFinalPage(True)  # ✅ dernière page
 
         self.summary_label = QtWidgets.QLabel()
@@ -403,7 +424,7 @@ if __name__ == "__main__":
         readme_content = f"""# {app_name}
 
 ## Description
-{self.desc_edit.toPlainText()}
+{self.config.app_description}
 
 ## Structure du projet
 - `main.py`: Point d'entrée de l'application
@@ -486,7 +507,7 @@ exe = EXE(
 def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle("Fusion")
-
+    
     app.setStyleSheet(
         """
     QWizard {
@@ -529,8 +550,15 @@ def main():
     }
     """
     )
-
+    
     wizard = InstallWizard()
+    
+    # Centrer horizontalement et positionner à 5 pixels du haut
+    screen_size = app.primaryScreen().size()
+    window_width = wizard.width()
+    x = (screen_size.width() - window_width) // 2
+    wizard.move(x, 5)
+    
     wizard.show()
     sys.exit(app.exec())
 
