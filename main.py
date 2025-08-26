@@ -285,10 +285,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 # Si le output_dir se termine par le nom de l'application, on copie directement dedans
                 # Sinon, on crée un sous-dossier avec le nom de l'application
                 if output_path.name == name:
-                    dst_path = output_path / src_path.name
+                    app_output_path = output_path
                 else:
                     app_output_path = output_path / name
                     app_output_path.mkdir(parents=True, exist_ok=True)
+                
+                # Si le fichier est un PNG, le copier dans un sous-dossier res
+                if src_path.is_file() and src_path.suffix.lower() == '.png':
+                    res_dir = app_output_path / 'res'
+                    res_dir.mkdir(parents=True, exist_ok=True)
+                    dst_path = res_dir / src_path.name
+                else:
                     dst_path = app_output_path / src_path.name
                 
                 # Copier le fichier ou le répertoire

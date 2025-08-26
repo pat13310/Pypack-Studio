@@ -5,6 +5,10 @@ Toutes les modifications notables apportées à ce projet seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2025-08-27
+- Gestion améliorée des dossiers pour la distribution
+
+
 ## [0.5.0] - 2025-08-27
 - Ajout de répertoires pour mieux structurer l'ensemble du projet
 - Ensemble plus modulaire et plus facile à maintenir
