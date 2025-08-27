@@ -38,6 +38,10 @@ APP_NAME = "PyPack Studio"
 # Importer le style personnalisé depuis le fichier styles.py
 from src.styles import CUSTOM_STYLE
 
+# en haut de ton fichier pypack_studio.py
+from src.services.profile_manager import ProfileManager
+from src.services.log_service import LogService
+from src.services.file_manager import FileManagerService
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -47,6 +51,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1100, 500)
         self.setFixedSize(1100, 820)
         self.settings = QtCore.QSettings(APP_ORG, APP_NAME)
+        self.profile_mgr = ProfileManager(self.settings)
         self._build_in_progress = False
 
         # ---- Barre latérale
@@ -83,9 +88,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if os.path.exists("res/log.png"):
             icon_log = QtGui.QIcon("res/log.png")
             self.nav.item(4).setIcon(icon_log)
-
-        
-        
+                
         # ---- Pages
         self.pages = QtWidgets.QStackedWidget()
         self.page_project = make_project_page(self)
@@ -105,6 +108,10 @@ class MainWindow(QtWidgets.QMainWindow):
         
         for p in (self.page_project, self.page_options, self.page_profiles, self.page_install, self.page_output):
             self.pages.addWidget(p)
+            
+        # Initialiser LogService et FileManagerService après la création de txt_log
+        self.log_service = LogService(self.txt_log)  # txt_log est maintenant disponible
+        self.file_mgr = FileManagerService(self.log_service)
 
         # ---- Layout principal
         central = QtWidgets.QWidget()
@@ -277,7 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 
             src_path = Path(path_str)
             if not src_path.exists():
-                self._append_log(f"[WARNING] Le chemin spécifié n'existe pas: {path_str}", "warning")
+                self.log_service._append_log(f"[WARNING] Le chemin spécifié n'existe pas: {path_str}", "warning")
                 continue
                 
             try:
@@ -301,16 +308,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 # Copier le fichier ou le répertoire
                 if src_path.is_file():
                     shutil.copy2(src_path, dst_path)
-                    self._append_log(f"[INFO] Fichier copié: {src_path} -> {dst_path}", "info")
+                    self.log_service._append_log(f"[INFO] Fichier copié: {src_path} -> {dst_path}", "info")
                 elif src_path.is_dir():
                     # Pour les répertoires, on utilise copytree avec dirs_exist_ok=True
                     if dst_path.exists():
                         shutil.rmtree(dst_path)
                     shutil.copytree(src_path, dst_path)
-                    self._append_log(f"[INFO] Répertoire copié: {src_path} -> {dst_path}", "info")
+                    self.log_service._append_log(f"[INFO] Répertoire copié: {src_path} -> {dst_path}", "info")
                     
             except Exception as e:
-                self._append_log(f"[ERROR] Erreur lors de la copie de {path_str}: {str(e)}", "error")
+                self.log_service._append_log(f"[ERROR] Erreur lors de la copie de {path_str}: {str(e)}", "error")
 
     def _config_from_ui(self) -> BuildConfig:
         cfg = BuildConfig(
@@ -330,6 +337,8 @@ class MainWindow(QtWidgets.QMainWindow):
             output_dir=self.ed_output.text(),
             python_exe=self.page_options.widget().widgets['ed_python'].text(),
         )
+        # Stocker la valeur de la checkbox pour l'utiliser dans _on_build_finished
+        self.open_output_dir = self.chk_open_output_dir.isChecked()
         return cfg.normalized()
 
     def _apply_config_to_ui(self, cfg: BuildConfig):
@@ -376,6 +385,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if not out:
             QtWidgets.QMessageBox.information(self, "Nettoyage", "Aucun dossier de sortie défini.")
             return
+        self.file_mgr.clean_output(out)
+        
         p = Path(out)
         if not p.exists():
             QtWidgets.QMessageBox.information(self, "Nettoyage", f"{out} n'existe pas.")
@@ -400,8 +411,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         child.unlink(missing_ok=True)
                 except Exception as e:
-                    self._append_log(f"[CLEAN] Erreur: {e}", "error")
-            self._append_log(f"[CLEAN] {out} vidé.", "info")
+                    self.log_service._append_log(f"[CLEAN] Erreur: {e}", "error")
+            self.log_service._append_log(f"[CLEAN] {out} vidé.", "info")
 
     # --- Build ---
     def _on_build_clicked(self):
@@ -428,6 +439,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _run_build(self, cmd: List[str], workdir: str):
         self.pages.setCurrentWidget(self.page_output)
+        self.nav.setCurrentRow(4)  # Sélectionner l'onglet "Sortie & Logs"
         self.txt_log.clear()
         self._build_in_progress = True
         self.btn_stop.setEnabled(True)
@@ -438,9 +450,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_bar.setValue(0)
 
         self.worker = BuildWorker(cmd, workdir=workdir)
-        self.worker.started.connect(lambda c: self._append_log("$ " + shlex.join(c)))
-        self.worker.line.connect(self._append_log)
-        self.worker.line.connect(self._update_progress)  # Mettre à jour la progression avec les logs
+        self.worker.started.connect(lambda c: self.log_service.append("$ " + shlex.join(c)))
+        self.worker.line.connect(lambda line: self.log_service.append(line))
+        self.worker.line.connect(self._update_progress)  # tu peux garder ta barre de progression
         self.worker.finished.connect(self._on_build_finished)
         self.worker.start()
 
@@ -459,16 +471,17 @@ class MainWindow(QtWidgets.QMainWindow):
         cfg = self._config_from_ui()
         if cfg.output_dir and cfg.directories_to_create:
             try:
-                self._append_log(f"[DEBUG] Chemin de sortie: {cfg.output_dir}", "info")
-                self._append_log(f"[DEBUG] Nombre d'éléments à copier: {len(cfg.directories_to_create)}", "info")
+                self.log_service._append_log(f"[DEBUG] Chemin de sortie: {cfg.output_dir}", "info")
+                self.log_service._append_log(f"[DEBUG] Nombre d'éléments à copier: {len(cfg.directories_to_create)}", "info")
                 for path in cfg.directories_to_create:
-                    self._append_log(f"[DEBUG] Élément à copier: {path}", "info")
+                    self.log_service._append_log(f"[DEBUG] Élément à copier: {path}", "info")
                     if Path(path).exists():
-                        self._append_log(f"[DEBUG] L'élément existe: {path}", "info")
+                        self.log_service._append_log(f"[DEBUG] L'élément existe: {path}", "info")
                     else:
-                        self._append_log(f"[DEBUG] L'élément n'existe pas: {path}", "warning")
-                self.copy_files_and_directories_to_output(cfg.directories_to_create, cfg.output_dir, cfg.name)
-                self._append_log("[INFO] Répertoires et fichiers copiés dans le dossier de sortie.", "info")
+                        self.log_service._append_log(f"[DEBUG] L'élément n'existe pas: {path}", "warning")
+                if cfg.output_dir and cfg.directories_to_create:
+                    self.file_mgr.copy_items(cfg.directories_to_create, cfg.output_dir, cfg.name)
+                    self.log_service._append_log("[INFO] Répertoires et fichiers copiés dans le dossier de sortie.", "info")
                 
                 # Vérifier si les fichiers ont été copiés
                 for path in cfg.directories_to_create:
@@ -476,14 +489,22 @@ class MainWindow(QtWidgets.QMainWindow):
                     if src_path.exists():
                         dst_path = Path(cfg.output_dir) / src_path.name
                         if dst_path.exists():
-                            self._append_log(f"[DEBUG] Élément copié avec succès: {dst_path}", "info")
+                            self.log_service._append_log(f"[DEBUG] Élément copié avec succès: {dst_path}", "info")
                         else:
-                            self._append_log(f"[DEBUG] Élément non trouvé après copie: {dst_path}", "warning")
+                            self.log_service._append_log(f"[DEBUG] Élément non trouvé après copie: {dst_path}", "warning")
             except Exception as e:
-                self._append_log(f"[ERROR] Erreur lors de la copie des répertoires et fichiers: {e}", "error")
+                self.log_service._append_log(f"[ERROR] Erreur lors de la copie des répertoires et fichiers: {e}", "error")
         
         if code == 0:
             self._status("Construction réussie.")
+            self.log_service.append("[INFO] Build terminé.", "INFO")
+            # Ouvrir le dossier de sortie si l'option est activée
+            if self.open_output_dir and cfg.output_dir:
+                output_path = Path(cfg.output_dir)
+                if output_path.exists():
+                    QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(output_path)))
+                    self._status("Dossier de sortie ouvert.")
+
         else:
             self._status(f"Construction échouée avec le code {code}.")
         self.btn_stop.setEnabled(False)
@@ -494,91 +515,63 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Échec", f"Le build a échoué (code {code}). Consultez les logs.")
 
     # --- Profils ---
-    def _profiles_load_all(self) -> Dict[str, dict]:
-        raw = self.settings.value("profiles", "{}")
-        try:
-            return json.loads(raw)
-        except Exception:
-            return {}
-
-    def _profiles_save_all(self, data: Dict[str, dict]):
-        self.settings.setValue("profiles", json.dumps(data, ensure_ascii=False, indent=2))
-
     def _refresh_profiles_list(self):
         self.page_profiles.widgets['lst_profiles'].clear()
-        for name in sorted(self._profiles_load_all().keys()):
+        for name in sorted(self.profile_mgr.load_all().keys()):
             self.page_profiles.widgets['lst_profiles'].addItem(name)
 
     def _on_profile_selected(self):
         item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
             return
-        name = item.text()
-        payload = self._profiles_load_all().get(name, {})
-        cfg = BuildConfig(**payload).normalized()
-        self._apply_config_to_ui(cfg)
+        payload = self.profile_mgr.get(item.text())
+        if payload:
+            cfg = BuildConfig(**payload).normalized()
+            self._apply_config_to_ui(cfg)
 
     def _profile_new(self):
         name, ok = QtWidgets.QInputDialog.getText(self, "Nouveau profil", "Nom du profil :")
         if not ok or not name.strip():
             return
-        data = self._profiles_load_all()
-        if name in data:
+        if self.profile_mgr.get(name):
             QtWidgets.QMessageBox.warning(self, "Profils", "Ce nom existe déjà.")
             return
         cfg = self._config_from_ui()
-        data[name] = asdict(cfg)
-        self._profiles_save_all(data)
+        self.profile_mgr.save(name, cfg)
         self._refresh_profiles_list()
-        items = self.page_profiles.widgets['lst_profiles'].findItems(name, QtCore.Qt.MatchExactly)
-        if items:
-            self.page_profiles.widgets['lst_profiles'].setCurrentItem(items[0])
 
     def _profile_save(self):
         item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
-            QtWidgets.QMessageBox.information(self, "Profils", "Sélectionnez un profil à enregistrer.")
             return
-        name = item.text()
-        data = self._profiles_load_all()
-        data[name] = asdict(self._config_from_ui())
-        self._profiles_save_all(data)
-        self._append_log(f"[PROFIL] Sauvé: {name}", "info")
+        self.profile_mgr.save(item.text(), self._config_from_ui())
+        self.log_service.append(f"Profil sauvegardé: {item.text()}", "INFO")
 
     def _profile_delete(self):
         item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
             return
-        name = item.text()
-        data = self._profiles_load_all()
-        if name in data:
-            del data[name]
-            self._profiles_save_all(data)
-            self._refresh_profiles_list()
-            self._append_log(f"[PROFIL] Supprimé: {name}", "info")
+        self.profile_mgr.delete(item.text())
+        self._refresh_profiles_list()
+        self.log_service.append(f"Profil supprimé: {item.text()}", "INFO")
 
     def _profile_export(self):
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Exporter profils", filter="JSON (*.json)")
         if not path:
             return
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self._profiles_load_all(), f, ensure_ascii=False, indent=2)
-        self._append_log(f"[EXPORT] Profils exportés -> {path}", "info")
+        self.profile_mgr.export_to_file(path)
+        self.log_service.append(f"Profils exportés -> {path}", "INFO")
 
     def _profile_import(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Importer profils", filter="JSON (*.json)")
         if not path:
             return
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if not isinstance(data, dict):
-                raise ValueError("Format invalide")
-            self._profiles_save_all(data)
+            self.profile_mgr.import_from_file(path)
             self._refresh_profiles_list()
-            self._append_log(f"[IMPORT] Profils importés depuis {path}", "info")
+            self.log_service.append(f"Profils importés depuis {path}", "INFO")
         except Exception as e:
-            self._append_log(f"[IMPORT] Erreur: {e}", "error")
+            self.log_service.append(f"Erreur import profils: {e}", "ERROR")
             QtWidgets.QMessageBox.warning(self, "Import", f"Erreur: {e}")
 
     # --- Settings ---
@@ -593,11 +586,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._apply_config_to_ui(cfg)
             except Exception:
                 pass
+        # Charger la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
+        open_output_dir = self.settings.value("project/open_output_dir", True, type=bool)
+        self.chk_open_output_dir.setChecked(open_output_dir)
+        # Charger l'onglet courant
+        current_tab = self.settings.value("current_tab", 0, type=int)
+        self.nav.setCurrentRow(current_tab)
 
     def closeEvent(self, e: QtGui.QCloseEvent):
         self.settings.setValue("win/size", self.size())
         self.settings.setValue("win/pos", self.pos())
         self.settings.setValue("last_config", json.dumps(asdict(self._config_from_ui()), ensure_ascii=False))
+        # Sauvegarder la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
+        self.settings.setValue("project/open_output_dir", self.chk_open_output_dir.isChecked())
+        # Sauvegarder l'onglet courant
+        self.settings.setValue("current_tab", self.nav.currentRow())
         super().closeEvent(e)
 
 

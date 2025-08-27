@@ -22,6 +22,10 @@ def make_project_page(main_window) -> QtWidgets.QWidget:
     main_window.ed_icon = PathPicker("", is_file=True)
     main_window.ed_output = PathPicker("", is_file=False)
 
+    # Option pour afficher le répertoire de sortie à la fin du build
+    main_window.chk_open_output_dir = QtWidgets.QCheckBox("Afficher le répertoire de sortie à la fin du build")
+    main_window.chk_open_output_dir.setChecked(True)
+    
     # Actions
     btn_analyze = QtWidgets.QPushButton(" Analyser")
     btn_analyze.clicked.connect(main_window._analyze_project)
@@ -84,6 +88,8 @@ def make_project_page(main_window) -> QtWidgets.QWidget:
     ]:
         form.addRow(row[0], row[1])
 
+    form.addRow(main_window.chk_open_output_dir)
+    
     sep = QtWidgets.QFrame()
     sep.setFrameShape(QtWidgets.QFrame.HLine)
     sep.setStyleSheet("color: #6a9bff;")

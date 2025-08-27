@@ -5,8 +5,21 @@ Toutes les modifications notables apportées à ce projet seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
 
+
+
+## [0.6.0] - 2025-08-27
+
+### Ajouté
+- Option dans la page "Projet" pour afficher le répertoire de sortie à la fin du build
+- Sauvegarde et chargement de l'état de l'onglet sélectionné dans la barre latérale
+
+### Amélioré
+- Persistance des paramètres utilisateur avec préfixe dans QSettings pour une meilleure organisation
+- Navigation automatique vers l'onglet "Sortie & Logs" lors du lancement d'un build, avec sélection de l'onglet dans la barre latérale
+
 ## [0.5.5] - 2025-08-27
 - Gestion améliorée des dossiers pour la distribution
+
 
 
 ## [0.5.0] - 2025-08-27
@@ -60,3 +73,6 @@ et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.1.0...v0.2.0
 [0.3.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.2.0...v0.3.0
 [0.4.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.3.0...v0.4.0
+[0.5.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.4.0...v0.5.0
+[0.5.5]: https://github.com/pat13310/Pypack-Studio/compare/v0.5.0...v0.5.5
+[0.6.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.5.5...v0.6.0
