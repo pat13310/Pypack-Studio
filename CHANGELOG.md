@@ -5,6 +5,13 @@ Toutes les modifications notables apportées à ce projet seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-08-28
+
+### Corrigé
+- Correction de l'erreur `AttributeError: 'OutputTabPage' object has no attribute '_config_from_ui'` lors de la fin d'un build
+- Correction de l'agencement de l'interface utilisateur de l'onglet "Output" pour que le bouton "Stop" apparaisse en bas
+- Correction de la logique d'arrêt du build pour que le bouton "Stop" fonctionne correctement
+
 
 
 ## [0.6.0] - 2025-08-27
@@ -16,6 +23,7 @@ et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0
 ### Amélioré
 - Persistance des paramètres utilisateur avec préfixe dans QSettings pour une meilleure organisation
 - Navigation automatique vers l'onglet "Sortie & Logs" lors du lancement d'un build, avec sélection de l'onglet dans la barre latérale
+
 
 ## [0.5.5] - 2025-08-27
 - Gestion améliorée des dossiers pour la distribution

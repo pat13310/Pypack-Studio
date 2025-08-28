@@ -30,8 +30,9 @@ from datetime import datetime
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from src.backends import BuildConfig, normpath,   APP_ORG ,BACKENDS
-from src.tabpage import make_project_page, make_options_page, make_profiles_page, make_output_page, make_install_page
+from src.tabpage import make_project_page, OutputTabPage, InstallTabPage, ProfilesTabPage, OptionsTabPage, ProjectTabPage
 from src.worker import BuildWorker
+from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction, StopBuildAction
 
 APP_NAME = "PyPack Studio"
 
@@ -91,26 +92,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 
         # ---- Pages
         self.pages = QtWidgets.QStackedWidget()
-        self.page_project = make_project_page(self)
-        self.page_options = make_options_page()
-        self.page_profiles = make_profiles_page()
-        self.page_install = make_install_page()
-        self.page_install.widget().install_btn.clicked.connect(self._install_app_from_page)
-        self.page_output = make_output_page(self)
+        self.page_project = ProjectTabPage()
+        self.page_project.btn_analyze.clicked.connect(lambda: self._analyze_project())
+        self.page_project.btn_build.clicked.connect(lambda: self._on_build_clicked())
+        self.page_project.btn_clean.clicked.connect(lambda: self._clean_output())
+        self.page_options = OptionsTabPage()
+        self.page_profiles = ProfilesTabPage()
+        self.page_install = InstallTabPage()
+        self.page_install.install_btn.clicked.connect(lambda: InstallAppAction(self).execute())
+        self.page_output = OutputTabPage()
         
         # Connecter les signaux de la page des profils
         self.page_profiles.widgets['lst_profiles'].itemSelectionChanged.connect(self._on_profile_selected)
-        self.page_profiles.widgets['btn_new'].clicked.connect(self._profile_new)
-        self.page_profiles.widgets['btn_save'].clicked.connect(self._profile_save)
-        self.page_profiles.widgets['btn_del'].clicked.connect(self._profile_delete)
-        self.page_profiles.widgets['btn_export'].clicked.connect(self._profile_export)
-        self.page_profiles.widgets['btn_import'].clicked.connect(self._profile_import)
+        self.page_profiles.widgets['btn_new'].clicked.connect(lambda: ProfileNewAction(self).execute())
+        self.page_profiles.widgets['btn_save'].clicked.connect(lambda: ProfileSaveAction(self).execute())
+        self.page_profiles.widgets['btn_del'].clicked.connect(lambda: ProfileDeleteAction(self).execute())
+        self.page_profiles.widgets['btn_export'].clicked.connect(lambda: ProfileExportAction(self).execute())
+        self.page_profiles.widgets['btn_import'].clicked.connect(lambda: ProfileImportAction(self).execute())
         
         for p in (self.page_project, self.page_options, self.page_profiles, self.page_install, self.page_output):
             self.pages.addWidget(p)
             
         # Initialiser LogService et FileManagerService après la création de txt_log
-        self.log_service = LogService(self.txt_log)  # txt_log est maintenant disponible
+        self.log_service = LogService(self.page_output.txt_log)  # txt_log est maintenant dans la page de log
         self.file_mgr = FileManagerService(self.log_service)
 
         # ---- Layout principal
@@ -122,10 +126,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._load_settings()
         # Définir l'icône par défaut si elle n'est pas déjà définie
-        if not self.ed_icon.text():
+        if not self.page_project.ed_icon.text():
             default_icon_path = "res/pypack.ico"
             if os.path.exists(default_icon_path):
-                self.ed_icon.setText(default_icon_path)
+                self.page_project.ed_icon.setText(default_icon_path)
         self.nav.setCurrentRow(0)
 
         # Définir l'icône de la fenêtre
@@ -156,7 +160,7 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def _install_app_from_page(self):
         # Récupérer les valeurs des widgets de la page d'installation
-        widgets = self.page_install.widget().widgets
+        widgets = self.page_install.widgets
         
         app_name = widgets['app_name'].text() or "MyApp"
         dest_path = widgets['dest_path'].text()
@@ -251,16 +255,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def _status(self, text: str):
         self.lbl_status.setText(text)
     
-    def _update_progress(self, text: str):
-        # Incrémenter la progression à chaque ligne de log
-        current_value = self.progress_bar.value()
-        if current_value < 100:
-            self.progress_bar.setValue(current_value + 1)
-        
-        # Réinitialiser la progression si elle atteint 100%
-        if self.progress_bar.value() >= 100:
-            self.progress_bar.setValue(0)
-
     def copy_files_and_directories_to_output(self, directories_to_create: List[str], output_dir: str, name: str):
         """
         Copie les fichiers et répertoires spécifiés vers le dossier de sortie.
@@ -321,198 +315,53 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _config_from_ui(self) -> BuildConfig:
         cfg = BuildConfig(
-            project_dir=self.ed_project.text(),
-            entry_script=self.ed_entry.text(),
-            name=self.ed_name.text(),
-            icon_path=self.ed_icon.text(),
-            backend=self.page_options.widget().widgets['cmb_backend'].currentText(),
-            onefile=self.page_options.widget().widgets['chk_onefile'].isChecked(),
-            windowed=self.page_options.widget().widgets['chk_windowed'].isChecked(),
-            clean=self.page_options.widget().widgets['chk_clean'].isChecked(),
-            console=self.page_options.widget().widgets['chk_console'].isChecked(),
-            #add_data=self.page_options.widget().widgets['tbl_data'].value(),
-            directories_to_create=self.page_options.widget().widgets['tbl_directories'].value(),
-            hidden_imports=[ln.strip() for ln in self.page_options.widget().widgets['ed_hidden'].toPlainText().splitlines() if ln.strip()],
-            extra_args=[ln.strip() for ln in self.page_options.widget().widgets['ed_extra'].toPlainText().splitlines() if ln.strip()],
-            output_dir=self.ed_output.text(),
-            python_exe=self.page_options.widget().widgets['ed_python'].text(),
+            project_dir=self.page_project.ed_project.text(),
+            entry_script=self.page_project.ed_entry.text(),
+            name=self.page_project.ed_name.text(),
+            icon_path=self.page_project.ed_icon.text(),
+            backend=self.page_options.widgets['cmb_backend'].currentText(),
+            onefile=self.page_options.widgets['chk_onefile'].isChecked(),
+            windowed=self.page_options.widgets['chk_windowed'].isChecked(),
+            clean=self.page_options.widgets['chk_clean'].isChecked(),
+            console=self.page_options.widgets['chk_console'].isChecked(),
+            #add_data=self.page_options.widgets['tbl_data'].value(),
+            directories_to_create=self.page_options.widgets['tbl_directories'].value(),
+            hidden_imports=[ln.strip() for ln in self.page_options.widgets['ed_hidden'].toPlainText().splitlines() if ln.strip()],
+            extra_args=[ln.strip() for ln in self.page_options.widgets['ed_extra'].toPlainText().splitlines() if ln.strip()],
+            output_dir=self.page_project.ed_output.text(),
+            python_exe=self.page_options.widgets['ed_python'].text(),
         )
         # Stocker la valeur de la checkbox pour l'utiliser dans _on_build_finished
-        self.open_output_dir = self.chk_open_output_dir.isChecked()
+        self.open_output_dir = self.page_project.chk_open_output_dir.isChecked()
         return cfg.normalized()
 
     def _apply_config_to_ui(self, cfg: BuildConfig):
-        self.ed_project.setText(cfg.project_dir)
-        self.ed_entry.setText(cfg.entry_script)
-        self.ed_name.setText(cfg.name)
-        self.ed_icon.setText(cfg.icon_path)
-        self.ed_output.setText(cfg.output_dir)
-        self.page_options.widget().widgets['cmb_backend'].setCurrentText(cfg.backend)
-        self.page_options.widget().widgets['chk_onefile'].setChecked(cfg.onefile)
-        self.page_options.widget().widgets['chk_windowed'].setChecked(cfg.windowed)
-        self.page_options.widget().widgets['chk_clean'].setChecked(cfg.clean)
-        self.page_options.widget().widgets['chk_console'].setChecked(cfg.console)
-        self.page_options.widget().widgets['tbl_data'].setValue(cfg.add_data)
-        self.page_options.widget().widgets['tbl_directories'].setValue(cfg.directories_to_create)
-        self.page_options.widget().widgets['ed_hidden'].setPlainText("\n".join(cfg.hidden_imports))
-        self.page_options.widget().widgets['ed_extra'].setPlainText("\n".join(cfg.extra_args))
-        self.page_options.widget().widgets['ed_python'].setText(cfg.python_exe)
+        self.page_project.ed_project.setText(cfg.project_dir)
+        self.page_project.ed_entry.setText(cfg.entry_script)
+        self.page_project.ed_name.setText(cfg.name)
+        self.page_project.ed_icon.setText(cfg.icon_path)
+        self.page_project.ed_output.setText(cfg.output_dir)
+        self.page_options.widgets['cmb_backend'].setCurrentText(cfg.backend)
+        self.page_options.widgets['chk_onefile'].setChecked(cfg.onefile)
+        self.page_options.widgets['chk_windowed'].setChecked(cfg.windowed)
+        self.page_options.widgets['chk_clean'].setChecked(cfg.clean)
+        self.page_options.widgets['chk_console'].setChecked(cfg.console)
+        self.page_options.widgets['tbl_data'].setValue(cfg.add_data)
+        self.page_options.widgets['tbl_directories'].setValue(cfg.directories_to_create)
+        self.page_options.widgets['ed_hidden'].setPlainText("\n".join(cfg.hidden_imports))
+        self.page_options.widgets['ed_extra'].setPlainText("\n".join(cfg.extra_args))
+        self.page_options.widgets['ed_python'].setText(cfg.python_exe)
 
     # --- Analyse/Nettoyage ---
     def _analyze_project(self):
-        cfg = self._config_from_ui()
-        ok, msg = cfg.validate()
-        if not ok:
-            QtWidgets.QMessageBox.warning(self, "Validation", msg)
-            return
-        # Analyse minimale : vérifier présence de venv et requirements.txt
-        proj = Path(cfg.project_dir)
-        hints = []
-        # venv
-        for cand in (".venv", "venv", "env"):
-            if (proj/cand).exists():
-                hints.append(f"Environnement détecté: {cand}")
-                break
-        # requirements
-        if (proj/"requirements.txt").exists():
-            hints.append("requirements.txt détecté. Pensez à geler les versions.")
-        # pyside6
-        hints.append("Astuce: pour PySide6, incluez Qt plugins via --add-data si nécessaire (styles, platforms, etc.).")
-        QtWidgets.QMessageBox.information(self, "Analyse", "\n".join(hints) or "Aucun indice particulier.")
+        AnalyzeProjectAction(self).execute()
 
     def _clean_output(self):
-        out = self.ed_output.text().strip()
-        if not out:
-            QtWidgets.QMessageBox.information(self, "Nettoyage", "Aucun dossier de sortie défini.")
-            return
-        self.file_mgr.clean_output(out)
-        
-        p = Path(out)
-        if not p.exists():
-            QtWidgets.QMessageBox.information(self, "Nettoyage", f"{out} n'existe pas.")
-            return
-        
-        confirm_box = QtWidgets.QMessageBox(self)
-        confirm_box.setWindowTitle("Confirmer")
-        confirm_box.setText(f"Supprimer le contenu de {out} ?")
-        confirm_box.setIcon(QtWidgets.QMessageBox.Question)
-        #confirm = QtWidgets.QMessageBox.question(self, "Confirmer", f"Supprimer le contenu de {out} ?")
-        # Ajout des boutons personnalisés
-        yes_button = confirm_box.addButton("Oui", QtWidgets.QMessageBox.YesRole)
-        no_button = confirm_box.addButton("Non", QtWidgets.QMessageBox.NoRole)
-        confirm_box.exec()
-        if confirm_box.clickedButton() == yes_button:
-            # Suppression prudente : uniquement contenu
-            for child in p.iterdir():
-                try:
-                    if child.is_dir():
-                        import shutil
-                        shutil.rmtree(child)
-                    else:
-                        child.unlink(missing_ok=True)
-                except Exception as e:
-                    self.log_service._append_log(f"[CLEAN] Erreur: {e}", "error")
-            self.log_service._append_log(f"[CLEAN] {out} vidé.", "info")
+        CleanOutputAction(self).execute()
 
     # --- Build ---
     def _on_build_clicked(self):
-        if self._build_in_progress:
-            QtWidgets.QMessageBox.information(self, "Build", "Un build est déjà en cours.")
-            return
-        cfg = self._config_from_ui()
-        ok, msg = cfg.validate()
-        if not ok:
-            QtWidgets.QMessageBox.warning(self, "Validation", msg)
-            self.nav.setCurrentRow(0)
-            return
-        backend = BACKENDS.get(cfg.backend)
-        if backend is None:
-            QtWidgets.QMessageBox.warning(self, "Outil", f"Outil inconnu: {cfg.backend}")
-            return
-        cmd = backend.build_command(cfg)
-        # Vérif exe disponible
-        tool = cmd[0] if os.path.basename(cmd[0]).lower().startswith("python") else cmd[0]
-        if not normpath(tool):
-            QtWidgets.QMessageBox.warning(self, "Environnement", "Python introuvable.")
-            return
-        self._run_build(cmd, workdir=cfg.project_dir)
-
-    def _run_build(self, cmd: List[str], workdir: str):
-        self.pages.setCurrentWidget(self.page_output)
-        self.nav.setCurrentRow(4)  # Sélectionner l'onglet "Sortie & Logs"
-        self.txt_log.clear()
-        self._build_in_progress = True
-        self.btn_stop.setEnabled(True)
-        self._status("Construction en cours…")
-        
-        # Afficher la barre de progression
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-
-        self.worker = BuildWorker(cmd, workdir=workdir)
-        self.worker.started.connect(lambda c: self.log_service.append("$ " + shlex.join(c)))
-        self.worker.line.connect(lambda line: self.log_service.append(line))
-        self.worker.line.connect(self._update_progress)  # tu peux garder ta barre de progression
-        self.worker.finished.connect(self._on_build_finished)
-        self.worker.start()
-
-    def _stop_build(self):
-        if hasattr(self, 'worker'):
-            self.worker.kill()
-        self._status("Construction interrompue.")
-        self.btn_stop.setEnabled(False)
-        self._build_in_progress = False
-
-    def _on_build_finished(self, code: int):
-        # Cacher la barre de progression
-        self.progress_bar.setVisible(False)
-        
-        # Copier les répertoires et fichiers spécifiés dans le dossier de sortie
-        cfg = self._config_from_ui()
-        if cfg.output_dir and cfg.directories_to_create:
-            try:
-                self.log_service._append_log(f"[DEBUG] Chemin de sortie: {cfg.output_dir}", "info")
-                self.log_service._append_log(f"[DEBUG] Nombre d'éléments à copier: {len(cfg.directories_to_create)}", "info")
-                for path in cfg.directories_to_create:
-                    self.log_service._append_log(f"[DEBUG] Élément à copier: {path}", "info")
-                    if Path(path).exists():
-                        self.log_service._append_log(f"[DEBUG] L'élément existe: {path}", "info")
-                    else:
-                        self.log_service._append_log(f"[DEBUG] L'élément n'existe pas: {path}", "warning")
-                if cfg.output_dir and cfg.directories_to_create:
-                    self.file_mgr.copy_items(cfg.directories_to_create, cfg.output_dir, cfg.name)
-                    self.log_service._append_log("[INFO] Répertoires et fichiers copiés dans le dossier de sortie.", "info")
-                
-                # Vérifier si les fichiers ont été copiés
-                for path in cfg.directories_to_create:
-                    src_path = Path(path)
-                    if src_path.exists():
-                        dst_path = Path(cfg.output_dir) / src_path.name
-                        if dst_path.exists():
-                            self.log_service._append_log(f"[DEBUG] Élément copié avec succès: {dst_path}", "info")
-                        else:
-                            self.log_service._append_log(f"[DEBUG] Élément non trouvé après copie: {dst_path}", "warning")
-            except Exception as e:
-                self.log_service._append_log(f"[ERROR] Erreur lors de la copie des répertoires et fichiers: {e}", "error")
-        
-        if code == 0:
-            self._status("Construction réussie.")
-            self.log_service.append("[INFO] Build terminé.", "INFO")
-            # Ouvrir le dossier de sortie si l'option est activée
-            if self.open_output_dir and cfg.output_dir:
-                output_path = Path(cfg.output_dir)
-                if output_path.exists():
-                    QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(output_path)))
-                    self._status("Dossier de sortie ouvert.")
-
-        else:
-            self._status(f"Construction échouée avec le code {code}.")
-        self.btn_stop.setEnabled(False)
-        self._build_in_progress = False
-        if code == 0:
-            QtWidgets.QMessageBox.information(self, "Succès", "Build terminé avec succès.")
-        else:
-            QtWidgets.QMessageBox.warning(self, "Échec", f"Le build a échoué (code {code}). Consultez les logs.")
+        BuildAction(self.page_output).execute(self)
 
     # --- Profils ---
     def _refresh_profiles_list(self):
@@ -530,49 +379,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self._apply_config_to_ui(cfg)
 
     def _profile_new(self):
-        name, ok = QtWidgets.QInputDialog.getText(self, "Nouveau profil", "Nom du profil :")
-        if not ok or not name.strip():
-            return
-        if self.profile_mgr.get(name):
-            QtWidgets.QMessageBox.warning(self, "Profils", "Ce nom existe déjà.")
-            return
-        cfg = self._config_from_ui()
-        self.profile_mgr.save(name, cfg)
-        self._refresh_profiles_list()
+        ProfileNewAction(self).execute()
 
     def _profile_save(self):
-        item = self.page_profiles.widgets['lst_profiles'].currentItem()
-        if not item:
-            return
-        self.profile_mgr.save(item.text(), self._config_from_ui())
-        self.log_service.append(f"Profil sauvegardé: {item.text()}", "INFO")
+        ProfileSaveAction(self).execute()
 
     def _profile_delete(self):
-        item = self.page_profiles.widgets['lst_profiles'].currentItem()
-        if not item:
-            return
-        self.profile_mgr.delete(item.text())
-        self._refresh_profiles_list()
-        self.log_service.append(f"Profil supprimé: {item.text()}", "INFO")
+        ProfileDeleteAction(self).execute()
 
     def _profile_export(self):
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Exporter profils", filter="JSON (*.json)")
-        if not path:
-            return
-        self.profile_mgr.export_to_file(path)
-        self.log_service.append(f"Profils exportés -> {path}", "INFO")
+        ProfileExportAction(self).execute()
 
     def _profile_import(self):
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Importer profils", filter="JSON (*.json)")
-        if not path:
-            return
-        try:
-            self.profile_mgr.import_from_file(path)
-            self._refresh_profiles_list()
-            self.log_service.append(f"Profils importés depuis {path}", "INFO")
-        except Exception as e:
-            self.log_service.append(f"Erreur import profils: {e}", "ERROR")
-            QtWidgets.QMessageBox.warning(self, "Import", f"Erreur: {e}")
+        ProfileImportAction(self).execute()
 
     # --- Settings ---
     def _load_settings(self):
@@ -588,7 +407,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
         # Charger la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
         open_output_dir = self.settings.value("project/open_output_dir", True, type=bool)
-        self.chk_open_output_dir.setChecked(open_output_dir)
+        self.page_project.chk_open_output_dir.setChecked(open_output_dir)
         # Charger l'onglet courant
         current_tab = self.settings.value("current_tab", 0, type=int)
         self.nav.setCurrentRow(current_tab)
@@ -598,20 +417,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.setValue("win/pos", self.pos())
         self.settings.setValue("last_config", json.dumps(asdict(self._config_from_ui()), ensure_ascii=False))
         # Sauvegarder la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
-        self.settings.setValue("project/open_output_dir", self.chk_open_output_dir.isChecked())
+        self.settings.setValue("project/open_output_dir", self.page_project.chk_open_output_dir.isChecked())
         # Sauvegarder l'onglet courant
         self.settings.setValue("current_tab", self.nav.currentRow())
         super().closeEvent(e)
 
 
 def main():
+    print("Creating QApplication")  # Débogage
     app = QtWidgets.QApplication(sys.argv)
+    print("QApplication created")  # Débogage
     app.setOrganizationName(APP_ORG)
     app.setApplicationName(APP_NAME)
     # Style classique propre
     app.setStyle("Fusion")
     app.setStyleSheet(CUSTOM_STYLE)
+    print("Creating MainWindow")  # Débogage
     w = MainWindow()
+    print("MainWindow created")  # Débogage
     
     # Centrer horizontalement et positionner à 50 pixels du haut
     screen_size = app.primaryScreen().size()
@@ -619,8 +442,17 @@ def main():
     x = (screen_size.width() - window_width) // 2
     w.move(x, 5)
     
+    print("Showing MainWindow")  # Débogage
     w.show()
-    sys.exit(app.exec())
+    print("MainWindow shown")  # Débogage
+    print("Starting app.exec()")  # Débogage
+    try:
+        sys.exit(app.exec())
+    except Exception as e:
+        print(f"Exception in app.exec(): {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

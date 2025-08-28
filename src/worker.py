@@ -50,6 +50,7 @@ class BuildWorker(QtCore.QObject):
 
     @QtCore.Slot(int, QtCore.QProcess.ExitStatus)
     def _on_finished(self, code: int, _status):
+        # print(f"_on_finished called with code: {code}")  # Débogage
         self.finished.emit(code)
 
     def kill(self):

@@ -1,12 +1,15 @@
 ('E:\\Projets QT\\Installer builder\\build\\pypack_studio\\PYZ-00.pyz',
  [('PySide6',
-   'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\PySide6\\__init__.py',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PySide6\\__init__.py',
    'PYMODULE'),
   ('PySide6.support',
-   'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\PySide6\\support\\__init__.py',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PySide6\\support\\__init__.py',
    'PYMODULE'),
   ('PySide6.support.deprecated',
-   'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\PySide6\\support\\deprecated.py',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PySide6\\support\\deprecated.py',
    'PYMODULE'),
   ('__future__',
    'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\__future__.py',
@@ -33,10 +36,12 @@
    'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\_pydecimal.py',
    'PYMODULE'),
   ('_pyi_rth_utils',
-   'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\PyInstaller\\fake-modules\\_pyi_rth_utils\\__init__.py',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PyInstaller\\fake-modules\\_pyi_rth_utils\\__init__.py',
    'PYMODULE'),
   ('_pyi_rth_utils.qt',
-   'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\PyInstaller\\fake-modules\\_pyi_rth_utils\\qt.py',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PyInstaller\\fake-modules\\_pyi_rth_utils\\qt.py',
    'PYMODULE'),
   ('_strptime',
    'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\_strptime.py',
@@ -291,7 +296,8 @@
    'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\selectors.py',
    'PYMODULE'),
   ('shiboken6',
-   'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\shiboken6\\__init__.py',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\shiboken6\\__init__.py',
    'PYMODULE'),
   ('shlex',
    'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\shlex.py',
@@ -306,6 +312,9 @@
    'C:\\Users\\p-gar\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\socket.py',
    'PYMODULE'),
   ('src', 'E:\\Projets QT\\Installer builder\\src\\__init__.py', 'PYMODULE'),
+  ('src.action',
+   'E:\\Projets QT\\Installer builder\\src\\action.py',
+   'PYMODULE'),
   ('src.backends',
    'E:\\Projets QT\\Installer builder\\src\\backends.py',
    'PYMODULE'),
