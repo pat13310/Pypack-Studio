@@ -5,6 +5,35 @@ Toutes les modifications notables apportées à ce projet seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-08-29
+
+### Amélioré
+- Amélioration de la communication entre les composants pour l'arrêt du build
+- Mise en place d'un signal personnalisé pour le bouton stop
+
+## [0.8.0] - 2025-08-29
+
+### Ajouté
+- Page "Installation" avec un assistant d'installation pour créer une structure de base d'application PySide6
+- Barre de progression pendant le processus de build
+- Icônes personnalisées pour les onglets de l'interface
+- Option dans la page "Projet" pour afficher le répertoire de sortie à la fin du build
+- Sauvegarde et chargement de l'état de l'onglet sélectionné dans la barre latérale
+
+### Amélioré
+- Gestion des fichiers et répertoires à copier dans le dossier de sortie
+- Système de logs avec couleurs et icônes pour différents niveaux de messages
+- Interface utilisateur avec des textes et des boutons plus explicites
+- Persistance des paramètres utilisateur avec préfixe dans QSettings pour une meilleure organisation
+- Navigation automatique vers l'onglet "Sortie & Logs" lors du lancement d'un build, avec sélection de l'onglet dans la barre latérale
+
+### Corrigé
+- Correction de l'erreur `AttributeError: 'OutputTabPage' object has no attribute '_config_from_ui'` lors de la fin d'un build
+- Correction de l'agencement de l'interface utilisateur de l'onglet "Output" pour que le bouton "Stop" apparaisse en bas
+- Correction de la logique d'arrêt du build pour que le bouton "Stop" fonctionne correctement
+
+[0.8.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.7.0...v0.8.0
+
 ## [0.7.0] - 2025-08-28
 
 ### Corrigé
@@ -23,6 +52,7 @@ et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0
 ### Amélioré
 - Persistance des paramètres utilisateur avec préfixe dans QSettings pour une meilleure organisation
 - Navigation automatique vers l'onglet "Sortie & Logs" lors du lancement d'un build, avec sélection de l'onglet dans la barre latérale
+
 
 
 ## [0.5.5] - 2025-08-27
@@ -84,3 +114,4 @@ et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0
 [0.5.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.4.0...v0.5.0
 [0.5.5]: https://github.com/pat13310/Pypack-Studio/compare/v0.5.0...v0.5.5
 [0.6.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.5.5...v0.6.0
+[0.7.0]: https://github.com/pat13310/Pypack-Studio/compare/v0.6.0...v0.7.0

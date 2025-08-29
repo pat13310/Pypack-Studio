@@ -30,9 +30,8 @@ from datetime import datetime
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from src.backends import BuildConfig, normpath,   APP_ORG ,BACKENDS
-from src.tabpage import make_project_page, OutputTabPage, InstallTabPage, ProfilesTabPage, OptionsTabPage, ProjectTabPage
-from src.worker import BuildWorker
-from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction, StopBuildAction
+from src.tabpage import  OutputTabPage, InstallTabPage, ProfilesTabPage, OptionsTabPage, ProjectTabPage
+from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction
 
 APP_NAME = "PyPack Studio"
 
@@ -64,31 +63,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.nav.currentRowChanged.connect(self._switch_page)
         
         # Ajout des icônes aux onglets
-        # Premier onglet "Projet" avec projet.png
-        if os.path.exists("./res/projet.png"):
-            icon_projet = QtGui.QIcon("./res/projet.png")
-            self.nav.item(0).setIcon(icon_projet)
+        self._set_nav_icons()
+        self.build_action=BuildAction(self.page_output)
         
-        # Deuxième onglet "Options" avec pngegg.png
-        if os.path.exists("res/option.png"):
-            icon_options = QtGui.QIcon("res/option.png")
-            self.nav.item(1).setIcon(icon_options)
-
-        # Triosième onglet "Profile" avec profile.png
-        if os.path.exists("res/profile.png"):
-            icon_profile = QtGui.QIcon("res/profile.png")
-            self.nav.item(2).setIcon(icon_profile)
+        # Connecter le signal stopRequested de la page de sortie à la méthode stop_build
+        self.page_output.stopRequested.connect(self.stop_build)
         
-        
-        # Quatrième onglet "Installation" avec installation.png
-        if os.path.exists("res/installation.png"):
-            icon_install = QtGui.QIcon("res/installation.png")
-            self.nav.item(3).setIcon(icon_install)
-        
-        # Cinquième onglet "Logs" avec log.png
-        if os.path.exists("res/log.png"):
-            icon_log = QtGui.QIcon("res/log.png")
-            self.nav.item(4).setIcon(icon_log)
+    def _set_nav_icons(self):
+        """Définit les icônes pour les éléments de navigation."""
+        icon_files = [
+            ("./res/projet.png", 0),
+            ("res/option.png", 1),
+            ("res/profile.png", 2),
+            ("res/installation.png", 3),
+            ("res/log.png", 4),
+        ]
+        for file_path, index in icon_files:
+            if os.path.exists(file_path):
+                icon = QtGui.QIcon(file_path)
+                self.nav.item(index).setIcon(icon)
                 
         # ---- Pages
         self.pages = QtWidgets.QStackedWidget()
@@ -139,180 +132,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if os.path.exists(window_icon_path):
             self.setWindowIcon(QtGui.QIcon(window_icon_path))
 
-    # ---------------- Pages ----------------
-    def _browse_destination(self):
-        directory = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "Choisir le répertoire de destination"
-        )
-        if directory:
-            self.ed_dest_path.setText(directory)
-            
-    def _browse_wizard_image(self):
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Sélectionner une image", "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)"
-        )
-        if file_path:
-            self.ed_wizard_image.setText(file_path)
-            
-    def _install_app(self):
-        # Cette méthode n'est plus utilisée directement, mais conservée pour compatibilité
-        pass
-    
-    def _install_app_from_page(self):
-        # Récupérer les valeurs des widgets de la page d'installation
-        widgets = self.page_install.widgets
-        
-        app_name = widgets['app_name'].text() or "MyApp"
-        dest_path = widgets['dest_path'].text()
-        wizard_image = widgets['wizard_image'].text()
-        
-        # Vérifier que le chemin de destination n'est pas vide
-        if not dest_path:
-            QtWidgets.QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier de destination.")
-            return
-            
-        # Importer l'assistant d'installation
-        from src.install_wizard import InstallWizard, WizardConfig
-        
-        # Créer la configuration du wizard
-        config = WizardConfig(
-            app_name=app_name,
-            dest_path=dest_path,
-            wizard_image=wizard_image
-        )
-        
-        # Mettre à jour les textes personnalisés si ils sont saisis
-        if widgets['intro_title'].text():
-            config.intro_title = widgets['intro_title'].text()
-        if widgets['intro_subtitle'].text():
-            config.intro_subtitle = widgets['intro_subtitle'].text()
-        if widgets['intro_text'].toPlainText():
-            config.intro_text = widgets['intro_text'].toPlainText()
-            
-        if widgets['app_info_title'].text():
-            config.app_info_title = widgets['app_info_title'].text()
-        if widgets['app_info_subtitle'].text():
-            config.app_info_subtitle = widgets['app_info_subtitle'].text()
-            
-        if widgets['components_title'].text():
-            config.components_title = widgets['components_title'].text()
-        if widgets['components_subtitle'].text():
-            config.components_subtitle = widgets['components_subtitle'].text()
-            
-        if widgets['install_options_title'].text():
-            config.install_options_title = widgets['install_options_title'].text()
-        if widgets['install_options_subtitle'].text():
-            config.install_options_subtitle = widgets['install_options_subtitle'].text()
-            
-        if widgets['destination_title'].text():
-            config.destination_title = widgets['destination_title'].text()
-        if widgets['destination_subtitle'].text():
-            config.destination_subtitle = widgets['destination_subtitle'].text()
-            
-        if widgets['summary_title'].text():
-            config.summary_title = widgets['summary_title'].text()
-        if widgets['summary_subtitle'].text():
-            config.summary_subtitle = widgets['summary_subtitle'].text()
-        
-        # Créer et afficher l'assistant d'installation avec la configuration
-        wizard = InstallWizard(config=config)
-        
-        # Afficher l'assistant
-        wizard.exec()
             
     # ---------------- Logic ----------------
     def _switch_page(self, idx: int):
         self.pages.setCurrentIndex(idx)
-
-    def _append_log(self, text: str, level: str = "info"):
-        # Essayer d'extraire le niveau à partir du texte s'il suit le format "PID LEVEL: message"
-        import re
-        match = re.match(r'^\d+\s+(INFO|WARNING|ERROR|DEBUG|CRITICAL):\s*(.*)', text)
-        if match:
-            extracted_level, message = match.groups()
-            # Utiliser le niveau extrait pour déterminer la couleur et l'icône
-            level = extracted_level.lower()  # Assurer que le niveau est en minuscule
-            text = message  # Le message est ce qui suit "PID LEVEL:"
         
-        color_map = {
-            "info": "#edf014",    # Gris clair
-            "warning": "#FFA500", # Orange
-            "error": "#FF0000"   # Rouge vif
-        }
-        icon_map = {
-            "info": "&#x2139;",     # ℹ️
-            "warning": "&#x26A0;",  # ⚠️
-            "error": "&#x274C;"     # ❌
-        }
-        color = color_map.get(level, "#e0e0e0")  # Par défaut gris clair
-        icon = icon_map.get(level, "&#x2139;")    # Par défaut ℹ️
-        timestamp = datetime.now().strftime("[%H:%M:%S]")
-        
-        html = f'<div class="log-entry"><span class="timestamp">{timestamp}</span> <span class="icon" style="color: {color};">{icon}</span> <span class="message" style="color: #e0e0e0;"> {text}</span></div>'
-        self.txt_log.insertHtml(html)
-        self.txt_log.append("")  # Ajouter une nouvelle ligne après l'insertion HTML
-
-    def _status(self, text: str):
-        self.lbl_status.setText(text)
-    
-    def copy_files_and_directories_to_output(self, directories_to_create: List[str], output_dir: str, name: str):
-        """
-        Copie les fichiers et répertoires spécifiés vers le dossier de sortie.
-        
-        Args:
-            directories_to_create: Liste des chemins des fichiers/répertoires à copier
-            output_dir: Chemin du dossier de sortie
-            name: Nom de l'application (utilisé pour déterminer le sous-dossier dans dist/)
-        """
-        import shutil
-        from pathlib import Path
-        
-        output_path = Path(output_dir)
-        
-        # S'assurer que le dossier de sortie existe
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        for path_str in directories_to_create:
-            if not path_str.strip():
-                continue
-                
-            src_path = Path(path_str)
-            if not src_path.exists():
-                self.log_service._append_log(f"[WARNING] Le chemin spécifié n'existe pas: {path_str}", "warning")
-                continue
-                
-            try:
-                # Déterminer le chemin de destination
-                # Si le output_dir se termine par le nom de l'application, on copie directement dedans
-                # Sinon, on crée un sous-dossier avec le nom de l'application
-                if output_path.name == name:
-                    app_output_path = output_path
-                else:
-                    app_output_path = output_path / name
-                    app_output_path.mkdir(parents=True, exist_ok=True)
-                
-                # Si le fichier est un PNG, le copier dans un sous-dossier res
-                if src_path.is_file() and src_path.suffix.lower() == '.png':
-                    res_dir = app_output_path / 'res'
-                    res_dir.mkdir(parents=True, exist_ok=True)
-                    dst_path = res_dir / src_path.name
-                else:
-                    dst_path = app_output_path / src_path.name
-                
-                # Copier le fichier ou le répertoire
-                if src_path.is_file():
-                    shutil.copy2(src_path, dst_path)
-                    self.log_service._append_log(f"[INFO] Fichier copié: {src_path} -> {dst_path}", "info")
-                elif src_path.is_dir():
-                    # Pour les répertoires, on utilise copytree avec dirs_exist_ok=True
-                    if dst_path.exists():
-                        shutil.rmtree(dst_path)
-                    shutil.copytree(src_path, dst_path)
-                    self.log_service._append_log(f"[INFO] Répertoire copié: {src_path} -> {dst_path}", "info")
-                    
-            except Exception as e:
-                self.log_service._append_log(f"[ERROR] Erreur lors de la copie de {path_str}: {str(e)}", "error")
-
     def _config_from_ui(self) -> BuildConfig:
         cfg = BuildConfig(
             project_dir=self.page_project.ed_project.text(),
@@ -361,7 +185,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # --- Build ---
     def _on_build_clicked(self):
-        BuildAction(self.page_output).execute(self)
+        self.build_action.execute(self)
+        
+    def stop_build(self):
+        """Arrête le processus de build en cours."""
+        if self.build_action.stop():
+            self.page_output.lbl_status.setText("Arrêt du build demandé...")
+            self.page_output.btn_stop.setEnabled(False)
+        else:
+            # Optionnel: afficher un message si aucun build n'est en cours
+            # QtWidgets.QMessageBox.information(self, "Stop", "Aucun build en cours.")
+            pass
 
     # --- Profils ---
     def _refresh_profiles_list(self):

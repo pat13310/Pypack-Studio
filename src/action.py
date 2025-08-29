@@ -31,9 +31,30 @@ class BuildAction(Action):
         super().__init__(log_page)  # log_page est stocké dans self.main_window
         self.line_count = 0  # Compteur de lignes pour limiter les mises à jour de la progressBar
         self.pending_progress_update = False  # Indique si une mise à jour de la progressBar est en attente
+        self.worker = None  # Stocker le worker ici aussi pour y accéder via une propriété
         # Initialiser le timer pour les mises à jour de l'UI
         self.progress_timer = QtCore.QTimer()
         self.progress_timer.timeout.connect(self._update_progress_ui)
+    
+    @property
+    def current_worker(self):
+        """Retourne le worker actuellement en cours d'exécution, ou None s'il n'y en a pas."""
+        return self.worker
+    
+    def stop(self):
+        """
+        Arrête le processus de build en cours.
+        
+        Returns:
+            bool: True si un worker a été trouvé et l'arrêt a été demandé, False sinon.
+        """
+        if self.worker is not None:
+            print(f"BuildAction.stop: Stopping worker {self.worker}") # Debug log
+            self.worker.kill()
+            return True
+        else:
+            print("BuildAction.stop: No worker to stop") # Debug log
+            return False
         
     def execute(self, main_window: QtWidgets.QMainWindow):
         log_page = self.main_window  # log_page est stocké dans self.main_window
@@ -89,6 +110,8 @@ class BuildAction(Action):
          
         # Stocker le worker dans main_window pour pouvoir l'arrêter plus tard
         main_window.worker = self.worker
+        # Stocker cette instance de BuildAction dans main_window pour que StopBuildAction puisse y accéder
+        main_window.current_build_action = self
         
     def _update_progress(self, text: str):
         print(f"_update_progress called with text: {text}")  # Débogage
@@ -113,7 +136,11 @@ class BuildAction(Action):
         self.pending_progress_update = False  # Réinitialiser le drapeau de mise à jour
         # Arrêter le timer
         if hasattr(self, 'progress_timer'):
-            self.progress_timer.stop()
+            try:
+                self.progress_timer.stop()
+            except RuntimeError:
+                # Le timer C++ a déjà été supprimé, on l'ignore
+                pass
         print(f"_on_build_finished called with code: {code}")  # Débogage
         # Cacher la barre de progression
         self.log_page.progress_bar.setVisible(False)
@@ -336,7 +363,7 @@ class InstallAppAction(Action):
     def execute(self):
         main_window = self.main_window
         # Récupérer les valeurs des widgets de la page d'installation
-        widgets = main_window.page_install.widget().widgets
+        widgets = main_window.page_install.widgets
         
         app_name = widgets['app_name'].text() or "MyApp"
         dest_path = widgets['dest_path'].text()
@@ -395,33 +422,106 @@ class InstallAppAction(Action):
         
         # Afficher l'assistant
         wizard.exec()
-        
-        
-class StopBuildAction(Action):
-    """Action pour arrêter le build."""
+
+
+class CreateSetupExeAction(Action):
+    """Action pour créer l'exécutable setup.exe à partir de install_wizard.py."""
     
     def __init__(self, log_page):
         super().__init__(log_page)  # log_page est stocké dans self.main_window
         
     def execute(self):
+        import subprocess
+        import sys
+        import os
+        from pathlib import Path
+        
         log_page = self.main_window  # log_page est stocké dans self.main_window
         # Essayer de récupérer main_window via le parent de log_page
-        # Cela suppose que log_page est un widget enfant de main_window
         main_window = log_page.parentWidget()
         if main_window is None:
-            # Si on ne peut pas récupérer main_window, on ne peut pas arrêter le build
-            # On pourrait afficher un message d'erreur, ou simplement ignorer
             print("Erreur: Impossible de récupérer main_window depuis log_page")
+            QtWidgets.QMessageBox.critical(log_page, "Erreur", "Impossible de récupérer la fenêtre principale.")
             return
             
-        # Vérifier si le worker est stocké dans main_window
-        if hasattr(main_window, 'worker'):
-            main_window.worker.kill()
-            # Nettoyer le worker de main_window
-            main_window.worker = None
-        # Accéder aux widgets via log_page
-        log_page.lbl_status.setText("Construction interrompue.")
-        log_page.btn_stop.setEnabled(False)
-        # Mettre à jour l'état dans main_window si nécessaire
-        if hasattr(main_window, '_build_in_progress'):
-            main_window._build_in_progress = False
+        # Définir les chemins
+        project_root = Path(__file__).parent.parent # e:\Projets QT\Installer builder
+        spec_file = project_root / "src" / "install_wizard.spec"
+        dist_path = project_root / "dist_setup"
+        
+        if not spec_file.exists():
+            QtWidgets.QMessageBox.critical(main_window, "Erreur", f"Fichier spec introuvable: {spec_file}")
+            return
+            
+        # Préparer la commande PyInstaller
+        # Utiliser le même interpréteur Python que celui qui exécute l'application
+        cmd = [
+            sys.executable, "-m", "PyInstaller",
+            str(spec_file),
+            f"--distpath={dist_path}",
+            "--noconfirm", # Ne pas demander de confirmation
+            "--clean" # Nettoyer avant de construire
+        ]
+        
+        # Configurer l'interface utilisateur pour le build
+        main_window.pages.setCurrentWidget(main_window.page_output)
+        main_window.nav.setCurrentRow(4)  # Sélectionner l'onglet "Sortie & Logs"
+        log_page.txt_log.clear()
+        log_page.lbl_status.setText("Création de setup.exe en cours…")
+        log_page.btn_stop.setEnabled(False) # Désactiver le bouton stop pour cette action simple
+        log_page.progress_bar.setVisible(True)
+        log_page.progress_bar.setRange(0, 0) # Barre de progression indéterminée
+        log_page.progress_bar.setValue(0)
+        
+        QtWidgets.QApplication.processEvents() # Forcer la mise à jour de l'UI
+        
+        try:
+            log_page.append_log(f"Exécution de la commande: {' '.join(cmd)}", "INFO")
+            # Exécuter la commande et capturer la sortie
+            # Utiliser stdout et stderr combinés pour avoir tout le log
+            process = subprocess.Popen(
+                cmd,
+                cwd=str(project_root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, # Rediriger stderr vers stdout
+                text=True,
+                encoding='utf-8',
+                errors='replace' # Gérer les erreurs d'encodage
+            )
+            
+            # Lire la sortie ligne par ligne
+            for line in process.stdout:
+                line = line.rstrip('\n\r') # Nettoyer les fins de ligne
+                if line: # N'afficher que les lignes non vides
+                    log_page.append_log(line, "INFO")
+                QtWidgets.QApplication.processEvents() # Garder l'UI réactive
+            
+            # Attendre la fin du processus
+            return_code = process.wait()
+            
+            # Cacher la barre de progression
+            log_page.progress_bar.setVisible(False)
+            
+            if return_code == 0:
+                log_page.lbl_status.setText("Création de setup.exe réussie.")
+                QtWidgets.QMessageBox.information(main_window, "Succès", f"setup.exe créé avec succès dans:\n{dist_path}")
+                # Ouvrir le dossier de sortie
+                QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(dist_path)))
+            else:
+                log_page.lbl_status.setText(f"Création de setup.exe échouée (code {return_code}).")
+                QtWidgets.QMessageBox.warning(main_window, "Échec", f"La création de setup.exe a échoué (code {return_code}). Consultez les logs.")
+                
+        except FileNotFoundError:
+            # Cacher la barre de progression
+            log_page.progress_bar.setVisible(False)
+            log_page.lbl_status.setText("PyInstaller introuvable.")
+            QtWidgets.QMessageBox.critical(main_window, "Erreur", "PyInstaller introuvable. Veuillez l'installer avec 'pip install pyinstaller'.")
+        except Exception as e:
+            # Cacher la barre de progression
+            log_page.progress_bar.setVisible(False)
+            log_page.lbl_status.setText("Erreur lors de la création de setup.exe.")
+            QtWidgets.QMessageBox.critical(main_window, "Erreur", f"Une erreur s'est produite:\n{str(e)}")
+        finally:
+            # Réactiver le bouton stop si nécessaire (normalement il ne devrait pas être pertinent ici)
+            # log_page.btn_stop.setEnabled(True) 
+            pass
