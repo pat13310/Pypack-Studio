@@ -152,7 +152,7 @@ CUSTOM_STYLE = """
 
  QCheckBox::indicator:checked {
      border: 1px solid #4a4a4a;
-     background-color: #5a5a5a;
+     background-color: #5a9bff;
  }
 
  QCheckBox::indicator:unchecked:hover {

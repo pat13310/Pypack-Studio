@@ -11,8 +11,12 @@ from src.backends import BuildConfig, BACKENDS
 from src.worker import BuildWorker
 import shlex
 
+# Créer une métaclasse personnalisée pour résoudre le conflit de métaclasse
+class ActionMeta(type(QtCore.QObject), type(ABC)):
+    pass
 
-class Action(ABC):
+
+class Action(ABC, metaclass=ActionMeta):
     """Classe de base abstraite pour toutes les actions de l'application."""
     
     def __init__(self, main_window):
@@ -24,11 +28,15 @@ class Action(ABC):
         pass
 
 
-class BuildAction(Action):
+class BuildAction(Action, QtCore.QObject):
     """Action pour construire l'application."""
     
+    # Définir le signal personnalisé
+    setupCreationRequested = QtCore.Signal()
+    
     def __init__(self, log_page):
-        super().__init__(log_page)  # log_page est stocké dans self.main_window
+        Action.__init__(self, log_page)  # Initialiser Action
+        QtCore.QObject.__init__(self)  # Initialiser QObject
         self.line_count = 0  # Compteur de lignes pour limiter les mises à jour de la progressBar
         self.pending_progress_update = False  # Indique si une mise à jour de la progressBar est en attente
         self.worker = None  # Stocker le worker ici aussi pour y accéder via une propriété
@@ -173,6 +181,29 @@ class BuildAction(Action):
             except Exception as e:
                 main_window.log_service.append(f"[ERROR] Erreur lors de la copie des répertoires et fichiers: {e}", "ERROR")
          
+        # Déplacer le contenu du répertoire créé par PyInstaller à la racine de dist/
+        if code == 0 and cfg.output_dir and not cfg.onefile:
+            try:
+                pyinstall_dir = Path(cfg.output_dir) / cfg.name
+                if pyinstall_dir.exists() and pyinstall_dir.is_dir():
+                    main_window.log_service.append(f"[DEBUG] Déplacement du contenu de {pyinstall_dir} vers {cfg.output_dir}", "INFO")
+                    for item in pyinstall_dir.iterdir():
+                        destination = Path(cfg.output_dir) / item.name
+                        # Si le fichier/répertoire existe déjà, le supprimer
+                        if destination.exists():
+                            if destination.is_dir():
+                                import shutil
+                                shutil.rmtree(destination)
+                            else:
+                                destination.unlink()
+                        # Déplacer l'élément
+                        item.rename(destination)
+                    # Supprimer le répertoire pyinstall_dir s'il est vide
+                    pyinstall_dir.rmdir()
+                    main_window.log_service.append("[INFO] Contenu déplacé avec succès.", "INFO")
+            except Exception as e:
+                main_window.log_service.append(f"[ERROR] Erreur lors du déplacement du contenu: {e}", "ERROR")
+         
         if code == 0:
             self.log_page.lbl_status.setText("Construction réussie.")
         else:
@@ -183,8 +214,16 @@ class BuildAction(Action):
         if hasattr(main_window, 'worker'):
             main_window.worker = None
         # Afficher le message immédiatement, avant les copies de fichiers
+              
+        # Si l'option "Créer un setup" est cochée, émettre le signal pour créer le setup
+        if hasattr(main_window, 'page_project') and main_window.page_project.chk_create_setup.isChecked():
+            print("Émettre le signal pour créer le setup")
+            # Émettre le signal pour créer le setup
+            self.setupCreationRequested.emit()
+          
         if code == 0:
             QtWidgets.QMessageBox.information(main_window, "Succès", "Build terminé avec succès.")
+          
         else:
             QtWidgets.QMessageBox.warning(main_window, "Échec", f"Le build a échoué (code {code}). Consultez les logs.")
         # Ouvrir le dossier de sortie si l'option est activée
@@ -438,9 +477,23 @@ class CreateSetupExeAction(Action):
         
         log_page = self.main_window  # log_page est stocké dans self.main_window
         # Essayer de récupérer main_window via le parent de log_page
-        main_window = log_page.parentWidget()
+        # log_page est self.page_output (OutputTabPage) dont le parent est self.pages (QStackedWidget)
+        # Le parent de self.pages est central (QWidget), et le parent de central est MainWindow
+        pages_widget = log_page.parentWidget()
+        if pages_widget is None:
+            print("Erreur: Impossible de récupérer pages_widget depuis log_page")
+            QtWidgets.QMessageBox.critical(log_page, "Erreur", "Impossible de récupérer le widget pages.")
+            return
+            
+        central_widget = pages_widget.parentWidget()
+        if central_widget is None:
+            print("Erreur: Impossible de récupérer central_widget depuis pages_widget")
+            QtWidgets.QMessageBox.critical(log_page, "Erreur", "Impossible de récupérer le widget central.")
+            return
+            
+        main_window = central_widget.parentWidget()
         if main_window is None:
-            print("Erreur: Impossible de récupérer main_window depuis log_page")
+            print("Erreur: Impossible de récupérer main_window depuis central_widget")
             QtWidgets.QMessageBox.critical(log_page, "Erreur", "Impossible de récupérer la fenêtre principale.")
             return
             

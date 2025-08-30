@@ -20,20 +20,16 @@ Test rapide :
 from __future__ import annotations
 import json
 import os
-import shlex
 import sys
-import textwrap
-from dataclasses import dataclass, asdict, field
+from dataclasses import  asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime
 
 from PySide6 import QtCore, QtGui, QtWidgets
-from src.backends import BuildConfig, normpath,   APP_ORG ,BACKENDS
+from src.backends import BuildConfig,   APP_ORG 
 from src.tabpage import  OutputTabPage, InstallTabPage, ProfilesTabPage, OptionsTabPage, ProjectTabPage
-from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction
+from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction, CreateSetupExeAction
 
-APP_NAME = "PyPack Studio"
+APP_NAME = "PyPack Studio v0.9"
 
 # Importer le style personnalisé depuis le fichier styles.py
 from src.styles import CUSTOM_STYLE
@@ -62,10 +58,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.nav.setIconSize(QtCore.QSize(50, 50))  # Agrandir les icônes
         self.nav.currentRowChanged.connect(self._switch_page)
         
+        # Stocker l'index de l'onglet Installation pour pouvoir le masquer/afficher
+        self.install_tab_index = 3
+         
         # Ajout des icônes aux onglets
         self._set_nav_icons()
         self.build_action=BuildAction(self.page_output)
-        
+         
+        # Connecter le signal setupCreationRequested de BuildAction à la méthode create_setup_exe
+        self.build_action.setupCreationRequested.connect(self.create_setup_exe)
+         
         # Connecter le signal stopRequested de la page de sortie à la méthode stop_build
         self.page_output.stopRequested.connect(self.stop_build)
         
@@ -137,6 +139,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def _switch_page(self, idx: int):
         self.pages.setCurrentIndex(idx)
         
+    def _update_install_tab_visibility(self, state):
+        """Met à jour la visibilité de l'onglet Installation en fonction de la case à cocher."""
+        # Masquer ou afficher l'onglet Installation
+        is_visible = state == 2  # QtCore.Qt.Checked = 2
+        self.nav.setRowHidden(self.install_tab_index, not is_visible)
+        
+        # Si l'onglet Installation est actuellement sélectionné et qu'on le masque, basculer vers l'onglet Projet
+        if not is_visible and self.nav.currentRow() == self.install_tab_index:
+            self.nav.setCurrentRow(0)
+        
     def _config_from_ui(self) -> BuildConfig:
         cfg = BuildConfig(
             project_dir=self.page_project.ed_project.text(),
@@ -197,6 +209,12 @@ class MainWindow(QtWidgets.QMainWindow):
             # QtWidgets.QMessageBox.information(self, "Stop", "Aucun build en cours.")
             pass
 
+    def create_setup_exe(self):
+        """Crée l'exécutable setup.exe."""
+        # Créer et exécuter l'action de création du setup
+        create_setup_action = CreateSetupExeAction(self.page_output)
+        create_setup_action.execute()
+
     # --- Profils ---
     def _refresh_profiles_list(self):
         self.page_profiles.widgets['lst_profiles'].clear()
@@ -242,6 +260,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # Charger la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
         open_output_dir = self.settings.value("project/open_output_dir", True, type=bool)
         self.page_project.chk_open_output_dir.setChecked(open_output_dir)
+        
+        # Charger la valeur de la checkbox "Créer un setup après le build"
+        create_setup = self.settings.value("project/create_setup", False, type=bool)
+        self.page_project.chk_create_setup.setChecked(create_setup)
+        
+        # Initialiser l'état de visibilité des onglets
+        # Masquer l'onglet Installation si la case à cocher n'est pas cochée
+        self.nav.setRowHidden(self.install_tab_index, not create_setup)
+        
+        # Connecter la case à cocher à la méthode de mise à jour de la visibilité de l'onglet Installation
+        # après avoir défini l'état initial
+        self.page_project.chk_create_setup.stateChanged.connect(self._update_install_tab_visibility)
+        
         # Charger l'onglet courant
         current_tab = self.settings.value("current_tab", 0, type=int)
         self.nav.setCurrentRow(current_tab)
@@ -252,6 +283,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.setValue("last_config", json.dumps(asdict(self._config_from_ui()), ensure_ascii=False))
         # Sauvegarder la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
         self.settings.setValue("project/open_output_dir", self.page_project.chk_open_output_dir.isChecked())
+        # Sauvegarder la valeur de la checkbox "Créer un setup après le build"
+        self.settings.setValue("project/create_setup", self.page_project.chk_create_setup.isChecked())
         # Sauvegarder l'onglet courant
         self.settings.setValue("current_tab", self.nav.currentRow())
         super().closeEvent(e)

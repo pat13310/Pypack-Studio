@@ -37,6 +37,10 @@ class ProjectTabPage(TabPage):
         self.chk_open_output_dir = QtWidgets.QCheckBox("Afficher le répertoire de sortie à la fin du build")
         self.chk_open_output_dir.setChecked(True)
         
+        # Option pour créer un setup après le build
+        self.chk_create_setup = QtWidgets.QCheckBox("Créer un setup après le build")
+        self.chk_create_setup.setChecked(False)
+        
         # Actions
         self.btn_analyze = QtWidgets.QPushButton(" Analyser")
         # self.btn_analyze.clicked.connect(lambda: main_window._analyze_project())
@@ -99,6 +103,7 @@ class ProjectTabPage(TabPage):
             form.addRow(row[0], row[1])
 
         form.addRow(self.chk_open_output_dir)
+        form.addRow(self.chk_create_setup)
         
         sep = QtWidgets.QFrame()
         sep.setFrameShape(QtWidgets.QFrame.HLine)

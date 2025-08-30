@@ -5,6 +5,16 @@ Toutes les modifications notables apportées à ce projet seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-08-30
+
+### Ajouté
+- Style bleu pour les cases à cocher lorsqu'elles sont cochées
+- Signal personnalisé pour la création du setup après le build
+
+### Modifié
+- Refactorisation du code pour déporter la création du setup de BuildAction vers un signal/slot
+- Correction des erreurs d'indentation dans le code
+
 ## [0.9.0] - 2025-08-29
 
 ### Amélioré
