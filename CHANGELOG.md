@@ -1,9 +1,21 @@
-# Changelog
+# Changelog 
 
-Toutes les modifications notables apportées à ce projet seront documentées dans ce fichier.
+## [1.1.0] - 2025-09-01
 
-Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-et ce projet adhère au [Versionnage Sémantique](https://semver.org/spec/v2.0.0.html).
+## Nouveautés
+- Correction de la restitution des dossiers et fichiers à ajouter dans l’UI lors du chargement d’un profil ou d’une configuration.
+- Suppression des références inutiles à `tbl_data` dans le code principal.
+- Amélioration de la robustesse de la méthode `_apply_config_to_ui` (gestion des valeurs absentes ou None).
+- Nettoyage du code et meilleure gestion des erreurs d’indentation et de portée.
+- Icônes de navigation agrandies pour une meilleure visibilité.
+
+## Corrections
+- Résolution des erreurs liées à des widgets non existants.
+- Correction de la sauvegarde et de la restauration des champs `directories_to_create` et `dirs_to_include`.
+
+## Divers
+- Documentation et commentaires améliorés pour faciliter la maintenance.
+- Préparation pour de futures évolutions (ajout de nouveaux backends, options avancées).
 
 ## [1.0.0] - 2025-08-30
 

@@ -28,15 +28,37 @@ class Action(ABC, metaclass=ActionMeta):
         pass
 
 
-class BuildAction(Action, QtCore.QObject):
-    """Action pour construire l'application."""
-    
-    # Définir le signal personnalisé
-    setupCreationRequested = QtCore.Signal()
+class BaseBuildAction(Action, QtCore.QObject):
+    """Classe de base pour les actions de build."""
     
     def __init__(self, log_page):
         Action.__init__(self, log_page)  # Initialiser Action
         QtCore.QObject.__init__(self)  # Initialiser QObject
+        self.log_page = log_page  # Stocker la page de log pour les utiliser dans d'autres méthodes
+        
+    def _setup_ui_for_build(self, main_window, status_text):
+        """Configure l'interface utilisateur pour le build."""
+        main_window.pages.setCurrentWidget(main_window.page_output)
+        main_window.nav.setCurrentRow(4)  # Sélectionner l'onglet "Sortie & Logs"
+        self.log_page.txt_log.clear()
+        self.log_page.lbl_status.setText(status_text)
+        self.log_page.btn_stop.setEnabled(False) # Désactiver le bouton stop pour cette action simple
+        self.log_page.progress_bar.setVisible(True)
+        self.log_page.progress_bar.setRange(0, 0) # Barre de progression indéterminée
+        self.log_page.progress_bar.setValue(0)
+        
+        QtWidgets.QApplication.processEvents() # Forcer la mise à jour de l'UI
+
+
+class BuildAction(BaseBuildAction):
+    """Action pour construire l'application."""
+    
+    # Définir le signal personnalisé
+    setupCreationRequested = QtCore.Signal()
+    finishRequested = QtCore.Signal()
+    
+    def __init__(self, log_page):
+        super().__init__(log_page)  # Initialiser BaseBuildAction
         self.line_count = 0  # Compteur de lignes pour limiter les mises à jour de la progressBar
         self.pending_progress_update = False  # Indique si une mise à jour de la progressBar est en attente
         self.worker = None  # Stocker le worker ici aussi pour y accéder via une propriété
@@ -187,19 +209,26 @@ class BuildAction(Action, QtCore.QObject):
                 pyinstall_dir = Path(cfg.output_dir) / cfg.name
                 if pyinstall_dir.exists() and pyinstall_dir.is_dir():
                     main_window.log_service.append(f"[DEBUG] Déplacement du contenu de {pyinstall_dir} vers {cfg.output_dir}", "INFO")
+                    # Liste des éléments à exclure du déplacement
+                    excluded_dirs = ["res"]  # Exclure le dossier res
+                    excluded_extensions = [".ico"]  # Exclure les fichiers d'icônes
+                    # Le dossier "_internal" et l'exécutable principal sont déplacés par défaut
                     for item in pyinstall_dir.iterdir():
-                        destination = Path(cfg.output_dir) / item.name
-                        # Si le fichier/répertoire existe déjà, le supprimer
-                        if destination.exists():
-                            if destination.is_dir():
-                                import shutil
-                                shutil.rmtree(destination)
-                            else:
-                                destination.unlink()
-                        # Déplacer l'élément
-                        item.rename(destination)
+                        # Vérifier si l'élément est dans la liste des dossiers exclus
+                        if item.is_dir() and item.name in excluded_dirs:
+                            main_window.log_service.append(f"[DEBUG] Dossier exclu du déplacement: {item.name}", "INFO")
+                            continue  # Passer à l'élément suivant
+                        
+                        # Vérifier si l'élément a une extension exclue
+                        if item.is_file() and item.suffix.lower() in excluded_extensions:
+                            main_window.log_service.append(f"[DEBUG] Fichier exclu du déplacement: {item.name}", "INFO")
+                            continue  # Passer à l'élément suivant
+                        
+                        
                     # Supprimer le répertoire pyinstall_dir s'il est vide
-                    pyinstall_dir.rmdir()
+                    # Vérifier s'il est vide avant de le supprimer
+                    if not any(pyinstall_dir.iterdir()):
+                        pyinstall_dir.rmdir()
                     main_window.log_service.append("[INFO] Contenu déplacé avec succès.", "INFO")
             except Exception as e:
                 main_window.log_service.append(f"[ERROR] Erreur lors du déplacement du contenu: {e}", "ERROR")
@@ -222,6 +251,8 @@ class BuildAction(Action, QtCore.QObject):
             self.setupCreationRequested.emit()
           
         if code == 0:
+            self.log_page.lbl_status.setText("Build terminé avec succès.")
+            self.finishRequested.emit()
             QtWidgets.QMessageBox.information(main_window, "Succès", "Build terminé avec succès.")
           
         else:
@@ -463,11 +494,13 @@ class InstallAppAction(Action):
         wizard.exec()
 
 
-class CreateSetupExeAction(Action):
+class CreateSetupExeAction(BaseBuildAction):
     """Action pour créer l'exécutable setup.exe à partir de install_wizard.py."""
     
+    finishRequested = QtCore.Signal()
+    
     def __init__(self, log_page):
-        super().__init__(log_page)  # log_page est stocké dans self.main_window
+        super().__init__(log_page)  # Initialiser BaseBuildAction
         
     def execute(self):
         import subprocess
@@ -475,7 +508,7 @@ class CreateSetupExeAction(Action):
         import os
         from pathlib import Path
         
-        log_page = self.main_window  # log_page est stocké dans self.main_window
+        log_page = self.log_page  # log_page est stocké dans self.log_page
         # Essayer de récupérer main_window via le parent de log_page
         # log_page est self.page_output (OutputTabPage) dont le parent est self.pages (QStackedWidget)
         # Le parent de self.pages est central (QWidget), et le parent de central est MainWindow
@@ -517,16 +550,7 @@ class CreateSetupExeAction(Action):
         ]
         
         # Configurer l'interface utilisateur pour le build
-        main_window.pages.setCurrentWidget(main_window.page_output)
-        main_window.nav.setCurrentRow(4)  # Sélectionner l'onglet "Sortie & Logs"
-        log_page.txt_log.clear()
-        log_page.lbl_status.setText("Création de setup.exe en cours…")
-        log_page.btn_stop.setEnabled(False) # Désactiver le bouton stop pour cette action simple
-        log_page.progress_bar.setVisible(True)
-        log_page.progress_bar.setRange(0, 0) # Barre de progression indéterminée
-        log_page.progress_bar.setValue(0)
-        
-        QtWidgets.QApplication.processEvents() # Forcer la mise à jour de l'UI
+        self._setup_ui_for_build(main_window, "Création de setup.exe en cours…")
         
         try:
             log_page.append_log(f"Exécution de la commande: {' '.join(cmd)}", "INFO")
@@ -557,9 +581,29 @@ class CreateSetupExeAction(Action):
             
             if return_code == 0:
                 log_page.lbl_status.setText("Création de setup.exe réussie.")
-                QtWidgets.QMessageBox.information(main_window, "Succès", f"setup.exe créé avec succès dans:\n{dist_path}")
-                # Ouvrir le dossier de sortie
-                QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(dist_path)))
+                
+                # Déplacer setup.exe vers le répertoire de destination
+                setup_exe_path = dist_path / "setup.exe"
+                if setup_exe_path.exists():
+                    # Récupérer la configuration de l'interface utilisateur
+                    cfg = main_window._config_from_ui()
+                    # Déterminer le chemin de destination
+                    destination_dir = Path(cfg.output_dir) / cfg.name
+                    destination_dir.mkdir(parents=True, exist_ok=True)
+                    destination_path = destination_dir / "setup.exe"
+                    
+                    try:
+                        # Déplacer le fichier
+                        setup_exe_path.rename(destination_path)
+                        QtWidgets.QMessageBox.information(main_window, "Succès", f"setup.exe créé et déplacé avec succès dans:\n{destination_path}")
+                        # Ouvrir le dossier de destination
+                        QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(destination_dir)))
+                    except Exception as e:
+                        QtWidgets.QMessageBox.warning(main_window, "Erreur", f"Erreur lors du déplacement de setup.exe: {e}")
+                else:
+                    QtWidgets.QMessageBox.information(main_window, "Succès", f"setup.exe créé avec succès dans:\n{dist_path}")
+                    # Ouvrir le dossier de sortie
+                    QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(dist_path)))
             else:
                 log_page.lbl_status.setText(f"Création de setup.exe échouée (code {return_code}).")
                 QtWidgets.QMessageBox.warning(main_window, "Échec", f"La création de setup.exe a échoué (code {return_code}). Consultez les logs.")
@@ -575,6 +619,382 @@ class CreateSetupExeAction(Action):
             log_page.lbl_status.setText("Erreur lors de la création de setup.exe.")
             QtWidgets.QMessageBox.critical(main_window, "Erreur", f"Une erreur s'est produite:\n{str(e)}")
         finally:
+            self.finishRequested.emit()
             # Réactiver le bouton stop si nécessaire (normalement il ne devrait pas être pertinent ici)
-            # log_page.btn_stop.setEnabled(True) 
+            # log_page.btn_stop.setEnabled(True)
             pass
+            
+            
+from pathlib import Path
+import shutil
+from enum import Enum
+
+
+class FileOperation(Enum):
+    """Enum pour les opérations disponibles sur les fichiers."""
+    MOVE = "move"
+    COPY = "copy"
+    DELETE = "delete"
+    RENAME = "rename"
+
+
+from pathlib import Path
+import shutil
+from enum import Enum
+
+
+class FileOperation(Enum):
+    """Enum pour les opérations disponibles sur les fichiers."""
+    MOVE = "move"
+    COPY = "copy"
+    DELETE = "delete"
+    RENAME = "rename"
+
+
+class FileAction:
+    """Classe générique pour gérer les actions sur les fichiers."""
+
+    def __init__(self, main_window,
+                 app_root: str,
+                 operation: FileOperation = FileOperation.MOVE,
+                 create_dir: bool = True,
+                 auto_rename: bool = True,
+                 confirm_overwrite: bool = False):
+        """
+        :param main_window: Fenêtre principale pour logs et QMessageBox
+        :param app_root: Dossier racine de l'application (sera créé si inexistant)
+        :param operation: Type d'opération à exécuter (FileOperation)
+        :param create_dir: Crée le dossier de destination si nécessaire
+        :param auto_rename: Renomme automatiquement si conflit de fichier
+        :param confirm_overwrite: Demande confirmation avant d'écraser un fichier
+        """
+        self.main_window = main_window
+        self.app_root = Path(app_root)
+        self.operation = operation
+        self.create_dir = create_dir
+        self.auto_rename = auto_rename
+        self.confirm_overwrite = confirm_overwrite
+
+        self._ensure_app_root()
+
+    # ----------- Vérification / création du dossier racine -----------
+    def _ensure_app_root(self):
+        """Vérifie ou crée le dossier racine de l'application."""
+        try:
+            if not self.app_root.exists():
+                self.app_root.mkdir(parents=True, exist_ok=True)
+                self.main_window.log_service.append(
+                    f"[FILE] Dossier racine créé: {self.app_root}", "INFO"
+                )
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self.main_window,
+                "Erreur",
+                f"Impossible de créer le dossier racine de l'application:\n{self.app_root}\n{str(e)}"
+            )
+            raise
+
+    # ----------- Méthodes utilitaires -----------
+    def _get_unique_filename(self, dest_file: Path) -> Path:
+        counter = 1
+        new_dest = dest_file
+        while new_dest.exists():
+            new_dest = dest_file.with_stem(f"{dest_file.stem}_{counter}")
+            counter += 1
+        return new_dest
+
+    def _ensure_destination_dir(self, dest_file: Path) -> bool:
+        """Crée le dossier de destination si nécessaire (dans app_root si relatif)."""
+        dest_dir = dest_file.parent
+
+        # Si le chemin est relatif -> basé sur app_root
+        if not dest_file.is_absolute():
+            dest_dir = self.app_root / dest_dir
+            dest_file = self.app_root / dest_file
+
+        if not dest_dir.exists():
+            if self.create_dir:
+                try:
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    self.main_window.log_service.append(f"[FILE] Dossier créé: {dest_dir}", "INFO")
+                except Exception as e:
+                    QtWidgets.QMessageBox.critical(
+                        self.main_window,
+                        "Erreur",
+                        f"Impossible de créer le dossier: {dest_dir}\n{str(e)}"
+                    )
+                    return False
+            else:
+                QtWidgets.QMessageBox.warning(
+                    self.main_window,
+                    "Erreur",
+                    f"Le dossier de destination n'existe pas: {dest_dir}"
+                )
+                return False
+        return True
+
+    def _handle_conflict(self, dest_file: Path) -> Path | None:
+        if not dest_file.exists():
+            return dest_file
+
+        if self.confirm_overwrite:
+            reply = QtWidgets.QMessageBox.question(
+                self.main_window,
+                "Conflit de fichier",
+                f"Le fichier {dest_file} existe déjà.\nVoulez-vous l'écraser ?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            if reply == QtWidgets.QMessageBox.No:
+                return self._get_unique_filename(dest_file) if self.auto_rename else None
+        elif self.auto_rename:
+            return self._get_unique_filename(dest_file)
+        return dest_file
+
+    # ----------- Méthodes d'opérations -----------
+    def _move_file(self, source_file: Path, dest_file: Path):
+        if not self._ensure_destination_dir(dest_file):
+            return
+        dest_file = self._handle_conflict(dest_file)
+        if dest_file is None:
+            return
+        shutil.move(str(source_file), str(dest_file))
+        self.main_window.log_service.append(f"[FILE] Déplacé: {source_file} -> {dest_file}", "INFO")
+        #QtWidgets.QMessageBox.information(
+        #    self.main_window,
+        #    "Succès",
+        #    f"Fichier déplacé:\n{source_file}\n->\n{dest_file}"
+        #)
+
+    def _copy_file(self, source_file: Path, dest_file: Path):
+        if not self._ensure_destination_dir(dest_file):
+            return
+        dest_file = self._handle_conflict(dest_file)
+        if dest_file is None:
+            return
+        shutil.copy2(str(source_file), str(dest_file))
+        self.main_window.log_service.append(f"[FILE] Copié: {source_file} -> {dest_file}", "INFO")
+        #QtWidgets.QMessageBox.information(
+        #    self.main_window,
+        #    "Succès",
+        #    f"Fichier copié:\n{source_file}\n->\n{dest_file}"
+        #)
+
+    def _delete_file(self, source_file: Path):
+        source_file.unlink(missing_ok=True)
+        self.main_window.log_service.append(f"[FILE] Supprimé: {source_file}", "INFO")
+        #QtWidgets.QMessageBox.information(self.main_window, "Succès", f"Fichier supprimé:\n{source_file}")
+
+    def _rename_file(self, source_file: Path, dest_file: Path):
+        if not self._ensure_destination_dir(dest_file):
+            return
+        dest_file = self._handle_conflict(dest_file)
+        if dest_file is None:
+            return
+        source_file.rename(dest_file)
+        self.main_window.log_service.append(f"[FILE] Renommé: {source_file} -> {dest_file}", "INFO")
+        #QtWidgets.QMessageBox.information(
+        #    self.main_window,
+        #    "Succès",
+        #    f"Fichier renommé:\n{source_file}\n->\n{dest_file}"
+        #)
+
+    # ----------- Routeur principal -----------
+    def execute(self, source_path: str, dest_path: str = None):
+        source_file = Path(source_path)
+
+        if not source_file.exists() and self.operation != FileOperation.DELETE:
+            error_msg = f"Le fichier source n'existe pas: {source_file}"
+            QtWidgets.QMessageBox.warning(self.main_window, "Erreur", error_msg)
+            self.main_window.log_service.append(f"[FILE] {error_msg}", "ERROR")
+            return
+
+        try:
+            if self.operation == FileOperation.MOVE:
+                if not dest_path:
+                    raise ValueError("dest_path est requis pour MOVE")
+                self._move_file(source_file, Path(dest_path))
+
+            elif self.operation == FileOperation.COPY:
+                if not dest_path:
+                    raise ValueError("dest_path est requis pour COPY")
+                self._copy_file(source_file, Path(dest_path))
+
+            elif self.operation == FileOperation.DELETE:
+                self._delete_file(source_file)
+
+            elif self.operation == FileOperation.RENAME:
+                if not dest_path:
+                    raise ValueError("dest_path est requis pour RENAME")
+                self._rename_file(source_file, Path(dest_path))
+
+            else:
+                raise ValueError(f"Opération inconnue: {self.operation}")
+
+        except Exception as e:
+            error_msg = f"Erreur lors de l'opération {self.operation.value}:\n{str(e)}"
+            QtWidgets.QMessageBox.critical(self.main_window, "Erreur", error_msg)
+            self.main_window.log_service.append(f"[FILE] {error_msg}", "ERROR")
+
+    """Classe générique pour gérer les actions sur les fichiers."""
+
+    def __init__(self, main_window,
+                 operation: FileOperation = FileOperation.MOVE,
+                 create_dir: bool = True,
+                 auto_rename: bool = True,
+                 confirm_overwrite: bool = False):
+        """
+        :param main_window: Fenêtre principale pour logs et QMessageBox
+        :param operation: Type d'opération à exécuter (FileOperation)
+        :param create_dir: Crée le dossier de destination si nécessaire (pour move/copy)
+        :param auto_rename: Renomme automatiquement si conflit de fichier
+        :param confirm_overwrite: Demande confirmation avant d'écraser un fichier
+        """
+        self.main_window = main_window
+        self.operation = operation
+        self.create_dir = create_dir
+        self.auto_rename = auto_rename
+        self.confirm_overwrite = confirm_overwrite
+
+    # ----------- Méthodes utilitaires -----------
+    def _get_unique_filename(self, dest_file: Path) -> Path:
+        """Renvoie un nom unique si le fichier existe déjà (ex: fichier_1.txt)."""
+        counter = 1
+        new_dest = dest_file
+        while new_dest.exists():
+            new_dest = dest_file.with_stem(f"{dest_file.stem}_{counter}")
+            counter += 1
+        return new_dest
+
+    def _ensure_destination_dir(self, dest_file: Path) -> bool:
+        """Crée le dossier de destination si nécessaire, renvoie False si impossible."""
+        if not dest_file.parent.exists():
+            if self.create_dir:
+                try:
+                    dest_file.parent.mkdir(parents=True, exist_ok=True)
+                    self.main_window.log_service.append(f"[FILE] Dossier créé: {dest_file.parent}", "INFO")
+                    return True
+                except Exception as e:
+                    error_msg = f"Impossible de créer le dossier: {dest_file.parent}\n{str(e)}"
+                    QtWidgets.QMessageBox.critical(self.main_window, "Erreur", error_msg)
+                    self.main_window.log_service.append(f"[FILE] {error_msg}", "ERROR")
+                    return False
+            else:
+                error_msg = f"Le dossier de destination n'existe pas: {dest_file.parent}"
+                QtWidgets.QMessageBox.warning(self.main_window, "Erreur", error_msg)
+                self.main_window.log_service.append(f"[FILE] {error_msg}", "ERROR")
+                return False
+        return True
+
+    def _handle_conflict(self, dest_file: Path) -> Path | None:
+        """Gère les conflits de fichier (confirme ou renomme). Renvoie le fichier final ou None pour annuler."""
+        if not dest_file.exists():
+            return dest_file
+
+        if self.confirm_overwrite:
+            reply = QtWidgets.QMessageBox.question(
+                self.main_window,
+                "Conflit de fichier",
+                f"Le fichier {dest_file} existe déjà.\nVoulez-vous l'écraser ?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            if reply == QtWidgets.QMessageBox.No:
+                if self.auto_rename:
+                    return self._get_unique_filename(dest_file)
+                return None
+        elif self.auto_rename:
+            return self._get_unique_filename(dest_file)
+
+        return dest_file
+
+    # ----------- Méthodes d'opérations -----------
+    def _move_file(self, source_file: Path, dest_file: Path):
+        if not self._ensure_destination_dir(dest_file):
+            return
+
+        dest_file = self._handle_conflict(dest_file)
+        if dest_file is None:
+            return  # Annulé par l'utilisateur
+
+        shutil.move(str(source_file), str(dest_file))
+        self.main_window.log_service.append(f"[FILE] Déplacé: {source_file} -> {dest_file}", "INFO")
+        QtWidgets.QMessageBox.information(
+            self.main_window,
+            "Succès",
+            f"Fichier déplacé avec succès:\n{source_file}\n->\n{dest_file}"
+        )
+
+    def _copy_file(self, source_file: Path, dest_file: Path):
+        if not self._ensure_destination_dir(dest_file):
+            return
+
+        dest_file = self._handle_conflict(dest_file)
+        if dest_file is None:
+            return  # Annulé par l'utilisateur
+
+        shutil.copy2(str(source_file), str(dest_file))
+        self.main_window.log_service.append(f"[FILE] Copié: {source_file} -> {dest_file}", "INFO")
+        QtWidgets.QMessageBox.information(
+            self.main_window,
+            "Succès",
+            f"Fichier copié avec succès:\n{source_file}\n->\n{dest_file}"
+        )
+
+    def _delete_file(self, source_file: Path):
+        source_file.unlink(missing_ok=True)
+        self.main_window.log_service.append(f"[FILE] Supprimé: {source_file}", "INFO")
+        QtWidgets.QMessageBox.information(self.main_window, "Succès", f"Fichier supprimé:\n{source_file}")
+
+    def _rename_file(self, source_file: Path, dest_file: Path):
+        if not self._ensure_destination_dir(dest_file):
+            return
+
+        dest_file = self._handle_conflict(dest_file)
+        if dest_file is None:
+            return  # Annulé par l'utilisateur
+
+        source_file.rename(dest_file)
+        self.main_window.log_service.append(f"[FILE] Renommé: {source_file} -> {dest_file}", "INFO")
+        QtWidgets.QMessageBox.information(
+            self.main_window,
+            "Succès",
+            f"Fichier renommé:\n{source_file}\n->\n{dest_file}"
+        )
+
+    # ----------- Méthode principale -----------
+    def execute(self, source_path: str, dest_path: str = None):
+        source_file = Path(source_path)
+
+        if not source_file.exists() and self.operation != FileOperation.DELETE:
+            error_msg = f"Le fichier source n'existe pas: {source_file}"
+            QtWidgets.QMessageBox.warning(self.main_window, "Erreur", error_msg)
+            self.main_window.log_service.append(f"[FILE] {error_msg}", "ERROR")
+            return
+
+        try:
+            if self.operation == FileOperation.MOVE:
+                if not dest_path:
+                    raise ValueError("dest_path est requis pour MOVE")
+                self._move_file(source_file, Path(dest_path))
+
+            elif self.operation == FileOperation.COPY:
+                if not dest_path:
+                    raise ValueError("dest_path est requis pour COPY")
+                self._copy_file(source_file, Path(dest_path))
+
+            elif self.operation == FileOperation.DELETE:
+                self._delete_file(source_file)
+
+            elif self.operation == FileOperation.RENAME:
+                if not dest_path:
+                    raise ValueError("dest_path est requis pour RENAME")
+                self._rename_file(source_file, Path(dest_path))
+
+            else:
+                raise ValueError(f"Opération inconnue: {self.operation}")
+
+        except Exception as e:
+            error_msg = f"Erreur lors de l'opération {self.operation.value}:\n{str(e)}"
+            QtWidgets.QMessageBox.critical(self.main_window, "Erreur", error_msg)
+            self.main_window.log_service.append(f"[FILE] {error_msg}", "ERROR")
+
+

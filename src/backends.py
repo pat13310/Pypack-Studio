@@ -22,6 +22,8 @@ class BuildConfig:
     console: bool = False
     add_data: List[Tuple[str, str]] = field(default_factory=list)  # (src, dst)
     directories_to_create: List[str] = field(default_factory=list)  # répertoires à créer dans le paquet
+    files_to_include: List[str] = field(default_factory=list)  # fichiers à inclure dans le paquet
+    dirs_to_include: List[str] = field(default_factory=list)  # dossiers à inclure dans le paquet
     hidden_imports: List[str] = field(default_factory=list)
     extra_args: List[str] = field(default_factory=list)
     output_dir: str = ""
@@ -108,6 +110,24 @@ class PyInstallerBackend(PackagerBackend):
         for pair in add_data_kv(cfg.add_data):
             cmd.extend(["--add-data", pair])
         # directories to create will be handled by creating placeholder files before build
+        # files to include
+        for file_path in cfg.files_to_include:
+            if file_path:
+                cmd.extend(["--add-data", f"{normpath(file_path)};."])
+        # dirs to include
+        for dir_path in cfg.dirs_to_include:
+            if dir_path and os.path.isdir(dir_path):
+                # Ajouter le répertoire avec son contenu
+                # PyInstaller utilise le format "src;dst" où dst est le chemin dans le paquet
+                # On veut inclure le contenu du répertoire, donc on utilise "." comme destination
+                # mais cela inclurait le répertoire lui-même. Pour inclure le contenu,
+                # il faut ajouter chaque fichier/sous-répertoire individuellement ou utiliser une astuce.
+                # La solution la plus simple est d'utiliser --add-data avec le chemin du répertoire
+                # et le nom du répertoire comme destination, ce qui inclura le répertoire lui-même.
+                # Si on veut inclure le contenu directement à la racine, il faut une approche différente.
+                # Pour l'instant, on inclut le répertoire avec son nom.
+                dir_name = os.path.basename(normpath(dir_path))
+                cmd.extend(["--add-data", f"{normpath(dir_path)};{dir_name}"])
         # hidden-imports
         for hi in cfg.hidden_imports:
             cmd.extend(["--hidden-import", hi])
@@ -141,6 +161,18 @@ class NuitkaBackend(PackagerBackend):
                 dst_final = dst or os.path.basename(src)
                 cmd.append(f"--include-data-file={src}={dst_final}")
         # directories to create will be handled by creating placeholder files before build
+        # files to include
+        for file_path in cfg.files_to_include:
+            if file_path:
+                file_name = os.path.basename(file_path)
+                cmd.append(f"--include-data-file={normpath(file_path)}={file_name}")
+        # dirs to include
+        for dir_path in cfg.dirs_to_include:
+            if dir_path and os.path.isdir(dir_path):
+                # Pour Nuitka, --include-data-dir=PATH=DESTDIR inclut le répertoire et son contenu
+                # On peut utiliser le nom du répertoire comme destination
+                dir_name = os.path.basename(normpath(dir_path))
+                cmd.append(f"--include-data-dir={normpath(dir_path)}={dir_name}")
         # hidden imports
         for hi in cfg.hidden_imports:
             cmd.extend(["--include-module", hi])

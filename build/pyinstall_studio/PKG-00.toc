@@ -1,0 +1,56 @@
+('E:\\Projets QT\\Installer '
+ 'builder\\build\\pyinstall_studio\\pyinstall_studio.pkg',
+ {'BINARY': True,
+  'DATA': True,
+  'EXECUTABLE': True,
+  'EXTENSION': True,
+  'PYMODULE': True,
+  'PYSOURCE': True,
+  'PYZ': False,
+  'SPLASH': True,
+  'SYMLINK': False},
+ [('pyi-contents-directory _internal', '', 'OPTION'),
+  ('PYZ-00.pyz',
+   'E:\\Projets QT\\Installer builder\\build\\pyinstall_studio\\PYZ-00.pyz',
+   'PYZ'),
+  ('struct',
+   'E:\\Projets QT\\Installer '
+   'builder\\build\\pyinstall_studio\\localpycs\\struct.pyc',
+   'PYMODULE'),
+  ('pyimod01_archive',
+   'E:\\Projets QT\\Installer '
+   'builder\\build\\pyinstall_studio\\localpycs\\pyimod01_archive.pyc',
+   'PYMODULE'),
+  ('pyimod02_importers',
+   'E:\\Projets QT\\Installer '
+   'builder\\build\\pyinstall_studio\\localpycs\\pyimod02_importers.pyc',
+   'PYMODULE'),
+  ('pyimod03_ctypes',
+   'E:\\Projets QT\\Installer '
+   'builder\\build\\pyinstall_studio\\localpycs\\pyimod03_ctypes.pyc',
+   'PYMODULE'),
+  ('pyimod04_pywin32',
+   'E:\\Projets QT\\Installer '
+   'builder\\build\\pyinstall_studio\\localpycs\\pyimod04_pywin32.pyc',
+   'PYMODULE'),
+  ('pyiboot01_bootstrap',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
+   'PYSOURCE'),
+  ('pyi_rth_inspect',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
+   'PYSOURCE'),
+  ('pyi_rth_pyside6',
+   'E:\\Projets QT\\Installer '
+   'builder\\venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pyside6.py',
+   'PYSOURCE'),
+  ('main', 'E:\\Projets QT\\Installer builder\\main.py', 'PYSOURCE')],
+ 'python313.dll',
+ True,
+ False,
+ False,
+ [],
+ None,
+ None,
+ None)

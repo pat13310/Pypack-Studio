@@ -42,14 +42,14 @@ class ProjectTabPage(TabPage):
         self.chk_create_setup.setChecked(False)
         
         # Actions
-        self.btn_analyze = QtWidgets.QPushButton(" Analyser")
+        self.btn_analyze = QtWidgets.QPushButton("  Analyser")
         # self.btn_analyze.clicked.connect(lambda: main_window._analyze_project())
         # Ajouter une icône au bouton Analyser si le fichier existe
         if os.path.exists("res/search.png"):
             self.btn_analyze.setIcon(QtGui.QIcon("res/search.png"))
             self.btn_analyze.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
         
-        self.btn_build = QtWidgets.QPushButton(" Construire")
+        self.btn_build = QtWidgets.QPushButton("  Construire")
         self.btn_build.setDefault(True)
         self.btn_build.setStyleSheet("""
             QPushButton {
@@ -79,7 +79,7 @@ class ProjectTabPage(TabPage):
         if os.path.exists("res/gear.png"):
             self.btn_build.setIcon(QtGui.QIcon("res/gear.png"))
             
-        self.btn_clean = QtWidgets.QPushButton(" Nettoyer dist/")
+        self.btn_clean = QtWidgets.QPushButton("  Nettoyer dist")
         # self.btn_clean.clicked.connect(lambda: main_window._clean_output())
         # Ajouter une icône au bouton Nettoyer si le fichier existe
         if os.path.exists("res/balai.png"):
@@ -374,7 +374,7 @@ class InstallTabPage(TabPage):
         if file_path:
             image_widget.setText(file_path)
        
-   
+
 class ProfilesTabPage(TabPage):
     """Page d'onglet pour les profils."""
     def __init__(self, parent=None):
@@ -431,20 +431,16 @@ class OptionsTabPage(TabPage):
         chk_windowed.setChecked(True)
         chk_clean = QtWidgets.QCheckBox("Nettoyage --clean")
         chk_clean.setChecked(True)
-        chk_console = QtWidgets.QCheckBox("Forcer console")
+        chk_console = QtWidgets.QCheckBox("Forcer console")        
         
-        #tbl_data = AddDataTable()
-        
-        # Widget pour les répertoires et fichiers à créer
-        tbl_directories = AddFilesAndDirectoriesWidget()
+        # Widget pour les répertoires et fichiers à inclure avec leur contenu
+        tbl_dirs_to_include = AddFilesAndDirectoriesWidget()
         
         ed_hidden = QtWidgets.QPlainTextEdit()
         ed_hidden.setPlaceholderText("module_a\npackage_b.sousmodule\n...")
-        #ed_hidden.setMaximumHeight(100)
         
         ed_extra = QtWidgets.QPlainTextEdit()
         ed_extra.setPlaceholderText("Args supplémentaires ligne par ligne, ex: \n--exclude-module some_heavy_pkg\n--onedir")
-        #ed_extra.setMaximumHeight(100)
         
         ed_python = LabeledLineEdit("Python (optionnel)")
         ed_python.setText(detect_python_exe())
@@ -456,8 +452,7 @@ class OptionsTabPage(TabPage):
             'chk_windowed': chk_windowed,
             'chk_clean': chk_clean,
             'chk_console': chk_console,
-            #'tbl_data': tbl_data,
-            'tbl_directories': tbl_directories,
+            'tbl_dirs_to_include': tbl_dirs_to_include,
             'ed_hidden': ed_hidden,
             'ed_extra': ed_extra,
             'ed_python': ed_python
@@ -469,8 +464,7 @@ class OptionsTabPage(TabPage):
             ("Fenêtre GUI", chk_windowed),
             ("Nettoyer", chk_clean),
             ("Console", chk_console),
-            #("Données embarquées", tbl_data),
-            ("Fichiers/Répertoires à copier", tbl_directories),
+            ("Fichiers/Répertoires à inclure", tbl_dirs_to_include),
             ("Hidden imports", ed_hidden),
             ("Args extra", ed_extra),
             ("Python", ed_python),
