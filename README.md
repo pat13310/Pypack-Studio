@@ -1,6 +1,7 @@
-# MyApp1
+# Pypack Studio
 
 ## Description
+<img width="1929" height="1489" alt="image" src="https://github.com/user-attachments/assets/207d76fc-bae8-4500-bd0a-d20f1db36dc3" />
 
 
 ## Structure du projet
