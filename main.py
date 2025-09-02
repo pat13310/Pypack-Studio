@@ -320,7 +320,8 @@ class MainWindow(QtWidgets.QMainWindow):
             # Met à jour explicitement la case à cocher selon le profil chargé
             self.page_project.chk_create_setup.setChecked(bool(getattr(cfg, 'create_setup', False)))
             # Synchronise la visibilité de l’onglet Installation
-            state_int = int(self.page_project.chk_create_setup.checkState())
+            state_enum = self.page_project.chk_create_setup.checkState()
+            state_int = state_enum.value if hasattr(state_enum, 'value') else int(state_enum)
             print(f"check {state_int}")
             self._update_install_tab_visibility(state_int)
             # Sauvegarder le nom du profil actif dans les settings
