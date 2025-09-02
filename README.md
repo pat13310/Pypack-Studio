@@ -6,7 +6,7 @@
 
 ## Structure du projet
 - `main.py`: Point d'entrée de l'application
-- `resources/`: Répertoire pour les ressources (images, icônes, etc.)
+- `res/`: Répertoire pour les ressources (images, icônes, etc.)
 - `requirements.txt`: Dépendances du projet
 - `pypack.spec`: Fichier de configuration PyInstaller (si généré)
 
