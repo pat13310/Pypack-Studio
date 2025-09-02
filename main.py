@@ -29,7 +29,7 @@ from src.backends import BuildConfig,   APP_ORG
 from src.tabpage import  OutputTabPage, InstallTabPage, ProfilesTabPage, OptionsTabPage, ProjectTabPage
 from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction, CreateSetupExeAction, FileAction
 
-APP_NAME = "PyPack Studio v1.1"
+APP_NAME = "PyPack Studio v1.2"
 
 # Importer le style personnalisé depuis le fichier styles.py
 from src.styles import CUSTOM_STYLE
@@ -41,6 +41,40 @@ from src.services.file_manager import FileManagerService
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    def _set_nav_icons(self):
+        """Définit les icônes pour les éléments de navigation."""
+        icon_files = [
+            ("res/projet.png", 0),
+            ("res/option.png", 1),
+            ("res/profile.png", 2),
+            ("res/installation.png", 3),
+            ("res/log.png", 4),
+        ]
+        for file_path, index in icon_files:
+            if os.path.exists(file_path):
+                icon = QtGui.QIcon(file_path)
+                self.nav.item(index).setIcon(icon)
+    def reset_ui_fields(self):
+        # Onglet Projet
+        self.page_project.ed_project.setText("")
+        self.page_project.ed_entry.setText("")
+        self.page_project.ed_name.setText("")
+        self.page_project.ed_icon.setText("")
+        self.page_project.ed_output.setText("")
+        self.page_project.chk_open_output_dir.setChecked(True)
+        self.page_project.chk_create_setup.setChecked(False)
+        # Onglet Options
+        self.page_options.widgets['cmb_backend'].setCurrentIndex(0)
+        self.page_options.widgets['chk_onefile'].setChecked(True)
+        self.page_options.widgets['chk_windowed'].setChecked(True)
+        self.page_options.widgets['chk_clean'].setChecked(True)
+        self.page_options.widgets['chk_console'].setChecked(False)
+        self.page_options.widgets['tbl_directories'].setValue([])
+        self.page_options.widgets['tbl_dirs_to_include'].setValue([])
+        self.page_options.widgets['ed_hidden'].setPlainText("")
+        self.page_options.widgets['ed_extra'].setPlainText("")
+        self.page_options.widgets['ed_python'].setText("")
+    
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
@@ -57,39 +91,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.nav.setSpacing(10)
         self.nav.setIconSize(QtCore.QSize(50, 50))  # Agrandir les icônes
         self.nav.currentRowChanged.connect(self._switch_page)
-        
+
         # Stocker l'index de l'onglet Installation pour pouvoir le masquer/afficher
         self.install_tab_index = 3
-         
+
         # Ajout des icônes aux onglets
         self._set_nav_icons()
-        self.build_action=BuildAction(self.page_output)
-        self.create_setup_action = CreateSetupExeAction(self.page_output)        
-        self.create_setup_action.finishRequested.connect(self.finish_setup_exe)
-         
-        # Connecter le signal finishRequested de BuildAction à la finish_build_app
-        self.build_action.finishRequested.connect(self.finish_build_app)
-         
-        # Connecter le signal stopRequested de la page de sortie à la méthode stop_build
-        self.page_output.stopRequested.connect(self.stop_build)
-        
-    def _set_nav_icons(self):
-        """Définit les icônes pour les éléments de navigation."""
-        icon_files = [
-            ("res/projet.png", 0),
-            ("res/option.png", 1),
-            ("res/profile.png", 2),
-            ("res/installation.png", 3),
-            ("res/log.png", 4),
-        ]
-        for file_path, index in icon_files:
-            if os.path.exists(file_path):
-                icon = QtGui.QIcon(file_path)
-                self.nav.item(index).setIcon(icon)
-                
-        # ---- Pages
+
         self.pages = QtWidgets.QStackedWidget()
+
         self.page_project = ProjectTabPage()
+        self.page_project.setupCheckChanged.connect(self._update_install_tab_visibility)
         self.page_project.btn_analyze.clicked.connect(lambda: self._analyze_project())
         self.page_project.btn_build.clicked.connect(lambda: self._on_build_clicked())
         self.page_project.btn_clean.clicked.connect(lambda: self._clean_output())
@@ -98,18 +110,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_install = InstallTabPage()
         self.page_install.install_btn.clicked.connect(lambda: InstallAppAction(self).execute())
         self.page_output = OutputTabPage()
-        
-        # Connecter les signaux de la page des profils
+
         self.page_profiles.widgets['lst_profiles'].itemSelectionChanged.connect(self._on_profile_selected)
         self.page_profiles.widgets['btn_new'].clicked.connect(lambda: ProfileNewAction(self).execute())
         self.page_profiles.widgets['btn_save'].clicked.connect(lambda: ProfileSaveAction(self).execute())
         self.page_profiles.widgets['btn_del'].clicked.connect(lambda: ProfileDeleteAction(self).execute())
         self.page_profiles.widgets['btn_export'].clicked.connect(lambda: ProfileExportAction(self).execute())
         self.page_profiles.widgets['btn_import'].clicked.connect(lambda: ProfileImportAction(self).execute())
-        
+
         for p in (self.page_project, self.page_options, self.page_profiles, self.page_install, self.page_output):
             self.pages.addWidget(p)
-            
+
         # Initialiser LogService et FileManagerService après la création de txt_log
         self.log_service = LogService(self.page_output.txt_log)  # txt_log est maintenant dans la page de log
         self.file_mgr = FileManagerService(self.log_service)
@@ -135,21 +146,46 @@ class MainWindow(QtWidgets.QMainWindow):
             window_icon_path = "res/pypack.png"
         if os.path.exists(window_icon_path):
             self.setWindowIcon(QtGui.QIcon(window_icon_path))
+        self.nav.setCurrentRow(0)
 
-            
+        # Définir l'icône de la fenêtre
+        window_icon_path = "res/pypack.ico"
+        if not os.path.exists(window_icon_path):
+            window_icon_path = "res/pypack.png"
+        if os.path.exists(window_icon_path):
+            self.setWindowIcon(QtGui.QIcon(window_icon_path))
+        # Définir l'icône de la fenêtre
+        window_icon_path = "res/pypack.ico"
+        if not os.path.exists(window_icon_path):
+            window_icon_path = "res/pypack.png"
+        if os.path.exists(window_icon_path):
+            self.setWindowIcon(QtGui.QIcon(window_icon_path))
+
+        
     # ---------------- Logic ----------------
     def _switch_page(self, idx: int):
+        # Sauvegarder le profil actif à chaque changement d'onglet
+        active_profile_name = self.settings.value("active_profile", "")
+        if active_profile_name and active_profile_name != "default":
+            try:
+                cfg = self._config_from_ui()
+                self.profile_mgr.save(active_profile_name, cfg)
+            except Exception as e:
+                print(f"Erreur lors de la sauvegarde du profil actif '{active_profile_name}' (changement d'onglet): {e}")
         self.pages.setCurrentIndex(idx)
+    
+    
+    def _toggle_tab_visibility(self, tab_index, state, checked_value=None, fallback_index=0):
+        """Affiche ou masque un onglet en fonction de l'état de la checkbox associée."""
+        # state est maintenant un entier (0 ou 2)
+        is_visible = (state == 2)
+        print(f"[DEBUG] main tab_index={tab_index}, state={state}, is_visible={is_visible}")
+        self.nav.setRowHidden(tab_index, not is_visible)
+        if not is_visible and self.nav.currentRow() == tab_index:
+            self.nav.setCurrentRow(fallback_index)
         
     def _update_install_tab_visibility(self, state):
-        """Met à jour la visibilité de l'onglet Installation en fonction de la case à cocher."""
-        # Masquer ou afficher l'onglet Installation
-        is_visible = state == 2  # QtCore.Qt.Checked = 2
-        self.nav.setRowHidden(self.install_tab_index, not is_visible)
-        
-        # Si l'onglet Installation est actuellement sélectionné et qu'on le masque, basculer vers l'onglet Projet
-        if not is_visible and self.nav.currentRow() == self.install_tab_index:
-            self.nav.setCurrentRow(0)
+        self._toggle_tab_visibility(self.install_tab_index, state)
         
     def _config_from_ui(self) -> BuildConfig:
         cfg = BuildConfig(
@@ -167,6 +203,7 @@ class MainWindow(QtWidgets.QMainWindow):
             extra_args=[ln.strip() for ln in self.page_options.widgets['ed_extra'].toPlainText().splitlines() if ln.strip()],
             output_dir=self.page_project.ed_output.text(),
             python_exe=self.page_options.widgets['ed_python'].text(),
+            create_setup=self.page_project.chk_create_setup.isChecked(),
         )
         # Stocker la valeur de la checkbox pour l'utiliser dans _on_build_finished
         self.open_output_dir = self.page_project.chk_open_output_dir.isChecked()
@@ -183,6 +220,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_options.widgets['chk_windowed'].setChecked(cfg.windowed)
         self.page_options.widgets['chk_clean'].setChecked(cfg.clean)
         self.page_options.widgets['chk_console'].setChecked(cfg.console)
+        self.page_project.chk_create_setup.setChecked(bool(getattr(cfg, 'create_setup', False)))
         # Correction : garantir la présence des champs et le bon format
         directories = getattr(cfg, 'directories_to_create', [])
         if directories is None:
@@ -190,12 +228,11 @@ class MainWindow(QtWidgets.QMainWindow):
         dirs_to_include = getattr(cfg, 'dirs_to_include', [])
         if dirs_to_include is None:
             dirs_to_include = []
-        print(f"Application de la config à l'UI: dirs_to_include = {dirs_to_include}")  # Debug
-        self.page_options.widgets['tbl_dirs_to_include'].setValue(dirs_to_include)
+        self.page_options.widgets['tbl_dirs_to_include'].setValue(getattr(cfg, 'dirs_to_include', []))
         self.page_options.widgets['ed_hidden'].setPlainText("\n".join(getattr(cfg, 'hidden_imports', [])))
         self.page_options.widgets['ed_extra'].setPlainText("\n".join(getattr(cfg, 'extra_args', [])))
         self.page_options.widgets['ed_python'].setText(getattr(cfg, 'python_exe', ""))
-
+        
     # --- Analyse/Nettoyage ---
     def _analyze_project(self):
         AnalyzeProjectAction(self).execute()
@@ -273,17 +310,28 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_profile_selected(self):
         item = self.page_profiles.widgets['lst_profiles'].currentItem()
         if not item:
+            self.setWindowTitle(APP_NAME)
             return
         profile_name = item.text()
         payload = self.profile_mgr.get(profile_name)
         if payload:
             cfg = BuildConfig(**payload).normalized()
-            print(f"Chargement du profil '{profile_name}': dirs_to_include = {cfg.dirs_to_include}")  # Debug
             self._apply_config_to_ui(cfg)
+            # Met à jour explicitement la case à cocher selon le profil chargé
+            self.page_project.chk_create_setup.setChecked(bool(getattr(cfg, 'create_setup', False)))
+            # Synchronise la visibilité de l’onglet Installation
+            state_int = int(self.page_project.chk_create_setup.checkState())
+            print(f"check {state_int}")
+            self._update_install_tab_visibility(state_int)
             # Sauvegarder le nom du profil actif dans les settings
             self.settings.setValue("active_profile", profile_name)
+            # Mettre à jour la barre de titre avec le profil actif
+            self.setWindowTitle(f"{APP_NAME}  [ {profile_name} ]")
+        else:
+            self.setWindowTitle(APP_NAME)
 
     def _profile_new(self):
+        self.reset_ui_fields()
         ProfileNewAction(self).execute()
 
     def _profile_save(self):
@@ -300,73 +348,97 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # --- Settings ---
     def _load_settings(self):
+        """Charge les paramètres de l'application et restaure l'état de l'UI avec fallback hiérarchique."""
+        # --- Étape 1 : Taille et position de la fenêtre ---
         self.resize(self.settings.value("win/size", QtCore.QSize(1100, 720)))
         self.move(self.settings.value("win/pos", QtCore.QPoint(100, 100)))
+
+        # --- Étape 2 : Mise à jour de la liste des profils ---
         self._refresh_profiles_list()
-        # Charger le profil actif s'il existe et s'il n'est pas "default"
-        active_profile_name = self.settings.value("active_profile", "")
-        if active_profile_name and active_profile_name != "default":
-            active_profile = self.profile_mgr.get(active_profile_name)
-            if active_profile:
-                try:
-                    cfg = BuildConfig(**active_profile).normalized()
-                    self._apply_config_to_ui(cfg)
-                    # Sélectionner le profil actif dans la liste
-                    items = self.page_profiles.widgets['lst_profiles'].findItems(active_profile_name, QtCore.Qt.MatchExactly)
-                    if items:
-                        self.page_profiles.widgets['lst_profiles'].setCurrentItem(items[0])
-                    return  # On a chargé le profil actif, on sort de la méthode
-                except Exception as e:
-                    print(f"Erreur lors du chargement du profil actif '{active_profile_name}': {e}")
-        
-        # Si aucun profil actif n'a été chargé, charger le profil "default" s'il existe, sinon charger last_config
-        default_profile = self.profile_mgr.get("default")
-        if default_profile:
-            try:
-                cfg = BuildConfig(**default_profile).normalized()
-                self._apply_config_to_ui(cfg)
-                # Sélectionner le profil "default" dans la liste
-                items = self.page_profiles.widgets['lst_profiles'].findItems("default", QtCore.Qt.MatchExactly)
-                if items:
-                    self.page_profiles.widgets['lst_profiles'].setCurrentItem(items[0])
-            except Exception as e:
-                print(f"Erreur lors du chargement du profil 'default': {e}")
-                # En cas d'erreur, charger last_config comme fallback
-                last = self.settings.value("last_config", "")
-                if last:
-                    try:
-                        cfg = BuildConfig(**json.loads(last)).normalized()
-                        self._apply_config_to_ui(cfg)
-                    except Exception:
-                        pass
-        else:
-            # Si aucun profil "default" n'existe, charger last_config
-            last = self.settings.value("last_config", "")
-            if last:
-                try:
-                    cfg = BuildConfig(**json.loads(last)).normalized()
-                    self._apply_config_to_ui(cfg)
-                except Exception:
-                    pass
-        # Charger la valeur de la checkbox "Afficher le répertoire de sortie à la fin du build"
-        open_output_dir = self.settings.value("project/open_output_dir", True, type=bool)
-        self.page_project.chk_open_output_dir.setChecked(open_output_dir)
-        
-        # Charger la valeur de la checkbox "Créer un setup après le build"
-        create_setup = self.settings.value("project/create_setup", False, type=bool)
-        self.page_project.chk_create_setup.setChecked(create_setup)
-        
-        # Initialiser l'état de visibilité des onglets
-        # Masquer l'onglet Installation si la case à cocher n'est pas cochée
-        self.nav.setRowHidden(self.install_tab_index, not create_setup)
-        
-        # Connecter la case à cocher à la méthode de mise à jour de la visibilité de l'onglet Installation
-        # après avoir défini l'état initial
-        self.page_project.chk_create_setup.stateChanged.connect(self._update_install_tab_visibility)
-        
-        # Charger l'onglet courant
-        current_tab = self.settings.value("current_tab", 0, type=int)
-        self.nav.setCurrentRow(current_tab)
+
+        # --- Étape 3 : Charger configuration via hiérarchie ---
+        loaded = (
+            self._try_load_profile(self.settings.value("active_profile", "")) or
+            self._try_load_profile("default") or
+            self._try_load_last_config() or
+            self._load_builtin_defaults()
+        )
+
+        if not loaded:
+            print("[WARN] Aucun profil n'a pu être chargé, interface initialisée avec les valeurs par défaut.")
+
+        # --- Étape 4 : Charger les options projet ---
+        self._load_project_options()
+
+        # --- Étape 5 : Mettre à jour visibilité de l'onglet Installation ---
+        #self._update_install_tab_visibility(self.page_project.chk_create_setup.checkState())
+
+# ---------------------
+# Méthodes utilitaires
+# ---------------------
+
+    def _try_load_profile(self, profile_name: str) -> bool:
+        """Tente de charger un profil. Retourne True si succès."""
+        if not profile_name:
+            return False
+        profile = self.profile_mgr.get(profile_name)
+        if not profile:
+            print(f"[INFO] Profil '{profile_name}' introuvable.")
+            return False
+        try:
+            cfg = BuildConfig(**profile).normalized()
+            self._apply_config_to_ui(cfg)
+            self._select_profile_in_list(profile_name)
+            print(f"[INFO] Profil '{profile_name}' chargé avec succès.")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Échec du chargement du profil '{profile_name}': {e}")
+            return False
+
+    def _try_load_last_config(self) -> bool:
+        """Tente de restaurer la dernière configuration enregistrée (last_config)."""
+        last = self.settings.value("last_config", "")
+        if not last:
+            return False
+        try:
+            cfg = BuildConfig(**json.loads(last)).normalized()
+            self._apply_config_to_ui(cfg)
+            print("[INFO] last_config restaurée avec succès.")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Échec du chargement de last_config: {e}")
+            return False
+
+    def _load_builtin_defaults(self) -> bool:
+        """Charge une configuration par défaut codée en dur (dernier niveau de fallback)."""
+        try:
+            default_cfg = BuildConfig(
+                project_name="NouveauProjet",
+                version="1.0.0",
+                output_dir="./build"
+            ).normalized()
+            self._apply_config_to_ui(default_cfg)
+            print("[INFO] Configuration par défaut appliquée (fallback).")
+            return True
+        except Exception as e:
+            print(f"[CRITICAL] Impossible d'appliquer la configuration par défaut: {e}")
+            return False
+
+    def _select_profile_in_list(self, profile_name: str):
+        """Sélectionne un profil dans la liste si trouvé."""
+        items = self.page_profiles.widgets['lst_profiles'].findItems(profile_name, QtCore.Qt.MatchExactly)
+        if items:
+            self.page_profiles.widgets['lst_profiles'].setCurrentItem(items[0])
+
+    def _load_project_options(self):
+        """Charge les options projet depuis les QSettings."""
+        self.page_project.chk_open_output_dir.setChecked(
+            self.settings.value("project/open_output_dir", True, type=bool)
+        )
+        self.page_project.chk_create_setup.setChecked(
+            self.settings.value("project/create_setup", False, type=bool)
+        )
+
 
     def closeEvent(self, e: QtGui.QCloseEvent):
         self.settings.setValue("win/size", self.size())
@@ -397,17 +469,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
-    print("Creating QApplication")  # Débogage
     app = QtWidgets.QApplication(sys.argv)
-    print("QApplication created")  # Débogage
     app.setOrganizationName(APP_ORG)
     app.setApplicationName(APP_NAME)
     # Style classique propre
     app.setStyle("Fusion")
     app.setStyleSheet(CUSTOM_STYLE)
-    print("Creating MainWindow")  # Débogage
     w = MainWindow()
-    print("MainWindow created")  # Débogage
     
     # Centrer horizontalement et positionner à 50 pixels du haut
     screen_size = app.primaryScreen().size()
@@ -415,10 +483,7 @@ def main():
     x = (screen_size.width() - window_width) // 2
     w.move(x, 5)
     
-    print("Showing MainWindow")  # Débogage
     w.show()
-    print("MainWindow shown")  # Débogage
-    print("Starting app.exec()")  # Débogage
     try:
         sys.exit(app.exec())
     except Exception as e:

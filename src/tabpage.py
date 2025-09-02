@@ -16,6 +16,7 @@ class TabPage(QtWidgets.QWidget):
 
 
 class ProjectTabPage(TabPage):
+    setupCheckChanged = QtCore.Signal(int)
     """Page d'onglet pour le projet."""
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,12 +35,15 @@ class ProjectTabPage(TabPage):
         self.ed_output = PathPicker("", is_file=False)
 
         # Option pour afficher le répertoire de sortie à la fin du build
+        # Connecter le signal stateChanged à l'émission du signal personnalisé
         self.chk_open_output_dir = QtWidgets.QCheckBox("Afficher le répertoire de sortie à la fin du build")
         self.chk_open_output_dir.setChecked(True)
+        
         
         # Option pour créer un setup après le build
         self.chk_create_setup = QtWidgets.QCheckBox("Créer un setup après le build")
         self.chk_create_setup.setChecked(False)
+        self.chk_create_setup.stateChanged.connect(self._on_setup_state_changed)
         
         # Actions
         self.btn_analyze = QtWidgets.QPushButton("  Analyser")
@@ -111,6 +115,10 @@ class ProjectTabPage(TabPage):
         form.addRow(sep)
         form.addRow(grid_buttons)
 
+    def _on_setup_state_changed(self, state):
+        # state est déjà un entier (0 ou 2)
+        print(f"[DEBUG] tabpage setup_checkbox state={state}")
+        self.setupCheckChanged.emit(state)
 
 class OutputTabPage(TabPage):
     """Page d'onglet pour la sortie et les logs."""

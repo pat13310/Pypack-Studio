@@ -28,6 +28,7 @@ class BuildConfig:
     extra_args: List[str] = field(default_factory=list)
     output_dir: str = ""
     python_exe: str = ""  # optionnel : forcer un Python spécifique
+    create_setup: bool = False  # Ajout pour la persistance de la case à cocher
 
     def validate(self) -> Tuple[bool, str]:
         if not self.entry_script:
