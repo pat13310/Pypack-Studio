@@ -29,7 +29,7 @@ from src.backends import BuildConfig,   APP_ORG
 from src.tabpage import  OutputTabPage, InstallTabPage, ProfilesTabPage, OptionsTabPage, ProjectTabPage
 from src.action import BuildAction, CleanOutputAction, AnalyzeProjectAction, ProfileNewAction, ProfileSaveAction, ProfileDeleteAction, ProfileExportAction, ProfileImportAction, InstallAppAction, CreateSetupExeAction, FileAction
 
-APP_NAME = "PyPack Studio v1.2"
+APP_NAME = "PyPack Studio v1.3"
 
 # Importer le style personnalisé depuis le fichier styles.py
 from src.styles import CUSTOM_STYLE
@@ -303,9 +303,16 @@ class MainWindow(QtWidgets.QMainWindow):
     
     # --- Profils ---
     def _refresh_profiles_list(self):
-        self.page_profiles.widgets['lst_profiles'].clear()
-        for name in sorted(self.profile_mgr.load_all().keys()):
-            self.page_profiles.widgets['lst_profiles'].addItem(name)
+        from src.profile_list_utils import update_profiles_list_widget
+        profiles = self.profile_mgr.load_all().keys()
+        active_profile = self.settings.value("active_profile", "")
+        update_profiles_list_widget(self.page_profiles.widgets['lst_profiles'], profiles, active_profile)
+        # Sélectionne l'item actif pour garder le style sélectionné
+        for i in range(self.page_profiles.widgets['lst_profiles'].count()):
+            item = self.page_profiles.widgets['lst_profiles'].item(i)
+            if item.text() == active_profile:
+                self.page_profiles.widgets['lst_profiles'].setCurrentItem(item)
+                break
 
     def _on_profile_selected(self):
         item = self.page_profiles.widgets['lst_profiles'].currentItem()

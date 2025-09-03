@@ -47,48 +47,23 @@ class ProjectTabPage(TabPage):
         
         # Actions
         self.btn_analyze = QtWidgets.QPushButton("  Analyser")
-        # self.btn_analyze.clicked.connect(lambda: main_window._analyze_project())
-        # Ajouter une icône au bouton Analyser si le fichier existe
         if os.path.exists("res/search.png"):
             self.btn_analyze.setIcon(QtGui.QIcon("res/search.png"))
-            self.btn_analyze.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
-        
+        else:
+            self.btn_analyze.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView))
+
         self.btn_build = QtWidgets.QPushButton("  Construire")
         self.btn_build.setDefault(True)
-        self.btn_build.setStyleSheet("""
-            QPushButton {
-                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                              stop: 0 #5a9bff, stop: 1 #007acc);
-                border: 1px solid #4a4a4a;
-                border-radius: 6px;
-                padding: 12px 28px;
-                color: #ffffff;
-                font-weight: bold;
-                margin-top:12px;
-            }
-            QPushButton:hover {
-                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                              stop: 0 #6aafff, stop: 1 #1a8cff);
-                border: 1px solid #5a9bff;
-            }
-            QPushButton:pressed {
-                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                              stop: 0 #007acc, stop: 1 #5a9bff);
-                border: 1px solid #2a2a2a;
-            }
-        """)
-        
-        # self.btn_build.clicked.connect(lambda: main_window._on_build_clicked())
-        # Ajouter une icône au bouton Construire si le fichier existe
         if os.path.exists("res/gear.png"):
             self.btn_build.setIcon(QtGui.QIcon("res/gear.png"))
-            
+        else:
+            self.btn_build.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DriveHDIcon))
+
         self.btn_clean = QtWidgets.QPushButton("  Nettoyer dist")
-        # self.btn_clean.clicked.connect(lambda: main_window._clean_output())
-        # Ajouter une icône au bouton Nettoyer si le fichier existe
         if os.path.exists("res/balai.png"):
             self.btn_clean.setIcon(QtGui.QIcon("res/balai.png"))
-            self.btn_clean.setStyleSheet("padding: 12px 20px 12px 20px; margin-top:12px")
+        else:
+            self.btn_clean.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_TrashIcon))
             
         grid_buttons = QtWidgets.QHBoxLayout()
         grid_buttons.addWidget(self.btn_analyze)
@@ -393,21 +368,29 @@ class ProfilesTabPage(TabPage):
         v = QtWidgets.QVBoxLayout(self)
         
         self.lst_profiles = QtWidgets.QListWidget()
-        
+
         btn_new = QtWidgets.QPushButton("Nouveau")
         btn_save = QtWidgets.QPushButton("Enregistrer")
         btn_del = QtWidgets.QPushButton("Supprimer")
         btn_export = QtWidgets.QPushButton("Exporter JSON")
         btn_import = QtWidgets.QPushButton("Importer JSON")
-        
+
+        # Ajout d'icônes aux boutons (utilise QWidget pour accéder au style)
+        style = QtWidgets.QWidget().style()
+        btn_new.setIcon(style.standardIcon(QtWidgets.QStyle.SP_FileDialogNewFolder))
+        btn_save.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogSaveButton))
+        btn_del.setIcon(style.standardIcon(QtWidgets.QStyle.SP_TrashIcon))
+        btn_export.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DriveFDIcon))
+        btn_import.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
+
         h = QtWidgets.QHBoxLayout()
         for b in (btn_new, btn_save, btn_del, btn_export, btn_import):
             h.addWidget(b)
         h.addStretch(1)
-        
+
         v.addWidget(self.lst_profiles)
         v.addLayout(h)
-        
+
         # Stocker les widgets dans self pour y accéder depuis l'extérieur
         self.widgets = {
             'lst_profiles': self.lst_profiles,
